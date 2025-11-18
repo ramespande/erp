@@ -1,0 +1,21 @@
+package edu.univ.erp.service;
+
+import edu.univ.erp.api.common.OperationResult;
+import edu.univ.erp.api.types.GradeView;
+
+import java.util.List;
+import java.util.Map;
+
+public interface InstructorService {
+    OperationResult<List<String>> listMySections(String instructorId);
+
+    OperationResult<GradeView> viewGradesForSection(String instructorId, String sectionId);
+
+    OperationResult<Void> recordScores(String instructorId,
+                                       String sectionId,
+                                       String enrollmentId,
+                                       Map<String, Double> componentScores);
+
+    OperationResult<Void> computeFinalGrades(String instructorId, String sectionId, Map<String, Double> weights);
+}
+

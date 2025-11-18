@@ -1,0 +1,9 @@
+/out/
+/dist/
+/.gradle/
+/build/
+*.class
+lib/*.jar
+sources-main.txt
+sources-test.txt
+
