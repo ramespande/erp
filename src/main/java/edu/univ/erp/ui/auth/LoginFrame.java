@@ -75,8 +75,8 @@ public final class LoginFrame extends JFrame {
     private JPanel buildLoginCard() {
         FrostedPanel card = new FrostedPanel();
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setPreferredSize(new Dimension(360, 420));
-        card.setMaximumSize(new Dimension(380, 440));
+        card.setPreferredSize(new Dimension(360, 460));
+        card.setMaximumSize(new Dimension(380, 480));
         card.setAlignmentX(CENTER_ALIGNMENT);
         card.setAlignmentY(CENTER_ALIGNMENT);
 
@@ -86,7 +86,7 @@ public final class LoginFrame extends JFrame {
 
         JLabel logoWordmark = new JLabel("Sign in to ERP");
         logoWordmark.setForeground(BRAND_PRIMARY);
-        logoWordmark.setFont(logoWordmark.getFont().deriveFont(Font.BOLD, 26f));
+        logoWordmark.setFont(logoWordmark.getFont().deriveFont(Font.BOLD, 24f));
         logoWordmark.setAlignmentX(LEFT_ALIGNMENT);
 
         JLabel subtitle = new JLabel("Use your institute credentials");
@@ -100,8 +100,10 @@ public final class LoginFrame extends JFrame {
         statusLabel.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
         statusLabel.setAlignmentX(LEFT_ALIGNMENT);
 
-        styleField(usernameField, "username@example.edu");
-        styleField(passwordField, "••••••••");
+        styleField(usernameField, null);
+        usernameField.setText("");
+        styleField(passwordField, null);
+        passwordField.setText("");
         passwordField.setEchoChar('•');
 
         JPanel fields = new JPanel();
@@ -128,13 +130,13 @@ public final class LoginFrame extends JFrame {
         card.add(logoWordmark);
         card.add(Box.createVerticalStrut(6));
         card.add(subtitle);
-        card.add(Box.createVerticalStrut(18));
+        card.add(Box.createVerticalStrut(16));
         card.add(statusLabel);
-        card.add(Box.createVerticalStrut(24));
+        card.add(Box.createVerticalStrut(18));
         card.add(fields);
-        card.add(Box.createVerticalStrut(24));
+        card.add(Box.createVerticalStrut(14));
         card.add(loginButton);
-        card.add(Box.createVerticalStrut(12));
+        card.add(Box.createVerticalStrut(8));
         JLabel hint = new JLabel("Google SSO coming soon. Contact admin for access.");
         hint.setForeground(new Color(120, 130, 140));
         hint.setFont(hint.getFont().deriveFont(Font.PLAIN, 12f));
