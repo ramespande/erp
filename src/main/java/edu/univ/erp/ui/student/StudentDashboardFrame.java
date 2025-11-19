@@ -11,6 +11,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -20,6 +21,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
+import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
@@ -27,25 +29,89 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 
 public final class StudentDashboardFrame extends JFrame {
 
+    private static final Color BRAND_PRIMARY = new Color(0, 158, 149);
+    private static final List<String> WEEK_DAYS = List.of(
+            "SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"
+    );
+    private static final int DEFAULT_START_HOUR = 8;
+    private static final int DEFAULT_END_HOUR = 18;
+    private static final Color[] BLOCK_COLORS = {
+            new Color(91, 143, 249),
+            new Color(120, 201, 214),
+            new Color(255, 167, 125),
+            new Color(143, 132, 255),
+            new Color(255, 204, 92),
+            new Color(255, 121, 157),
+            new Color(120, 200, 160)
+    };
+    private static final ThemePalette LIGHT_THEME = new ThemePalette(
+            new Color(247, 249, 250),
+            new Color(255, 255, 255),
+            new Color(219, 226, 232),
+            new Color(0, 158, 149, 30),
+            new Color(255, 255, 255, 220),
+            new Color(30, 50, 70),
+            new Color(20, 40, 60),
+            new Color(90, 100, 110),
+            new Color(60, 70, 80),
+            new Color(239, 244, 247),
+            new Color(40, 55, 70),
+            new Color(227, 245, 242),
+            Color.DARK_GRAY,
+            new Color(245, 248, 249),
+            new Color(90, 100, 110),
+            new Color(110, 120, 130),
+            new Color(229, 236, 241),
+            new Color(255, 255, 255, 200),
+            new Color(220, 225, 230)
+    );
+    private static final ThemePalette DARK_THEME = new ThemePalette(
+            new Color(24, 29, 36),
+            new Color(39, 47, 58),
+            new Color(55, 65, 78),
+            new Color(50, 58, 70),
+            new Color(57, 66, 78),
+            new Color(230, 236, 243),
+            new Color(230, 236, 243),
+            new Color(173, 183, 196),
+            new Color(150, 160, 175),
+            new Color(52, 61, 74),
+            new Color(230, 236, 243),
+            new Color(59, 85, 98),
+            new Color(230, 236, 243),
+            new Color(45, 54, 66),
+            new Color(173, 183, 196),
+            new Color(150, 160, 175),
+            new Color(60, 70, 85),
+            new Color(39, 47, 58),
+            new Color(70, 80, 95)
+    );
+
     private final StudentService studentService = ServiceLocator.studentService();
     private final String studentId;
+
+    private ThemePalette theme = LIGHT_THEME;
+    private boolean darkMode;
 
     private final DefaultTableModel catalogModel = new DefaultTableModel(new Object[] {
             "Section ID", "Course", "Title", "Credits", "Instructor", "Schedule", "Capacity", "Taken"
     }, 0);
-    private final DefaultTableModel timetableModel = new DefaultTableModel(new Object[] {
-            "Day", "Time", "Course", "Section", "Room"
-    }, 0);
-    private final DefaultTableModel gradeModel = new DefaultTableModel(new Object[] {
-            "Course", "Section", "Component", "Score", "Weight", "Final"
-    }, 0);
+    private final TimetableGrid timetableGrid = new TimetableGrid();
+    private final GradeDeckPanel gradeDeck = new GradeDeckPanel();
+    private final JTabbedPane tabs = new JTabbedPane();
+    private final List<JToggleButton> themeToggles = new ArrayList<>();
 
     private final JLabel maintenanceLabel = new JLabel("", SwingConstants.CENTER);
 
@@ -56,14 +122,9 @@ public final class StudentDashboardFrame extends JFrame {
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        JTabbedPane tabs = new JTabbedPane();
-        tabs.addTab("Home", buildHomePanel(tabs));
-        tabs.addTab("Catalog", buildCatalogPanel());
-        tabs.addTab("Timetable", buildTimetablePanel());
-        tabs.addTab("Grades", buildGradesPanel());
-        tabs.setSelectedIndex(0);
-
         maintenanceLabel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+
+        rebuildTabs();
 
         add(tabs, BorderLayout.CENTER);
         add(maintenanceLabel, BorderLayout.SOUTH);
@@ -71,12 +132,69 @@ public final class StudentDashboardFrame extends JFrame {
         refreshAll();
     }
 
-    private JPanel buildCatalogPanel() {
-        JTable table = new JTable(catalogModel);
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+    private void rebuildTabs() {
+        int selectedIndex = tabs.getTabCount() > 0 ? tabs.getSelectedIndex() : 0;
+        tabs.removeAll();
+        timetableGrid.refreshTheme();
+        themeToggles.clear();
 
-        JButton registerButton = new JButton("Register");
+        tabs.addTab("Home", buildHomePanel(tabs));
+        tabs.addTab("Catalog", buildCatalogPanel(tabs));
+        tabs.addTab("Timetable", buildTimetablePanel(tabs));
+        tabs.addTab("Grades", buildGradesPanel(tabs));
+
+        if (tabs.getTabCount() > 0) {
+            tabs.setSelectedIndex(Math.min(selectedIndex, tabs.getTabCount() - 1));
+        }
+
+        tabs.setOpaque(true);
+        tabs.setBackground(theme.background());
+        tabs.setForeground(theme.textSecondary());
+
+        getContentPane().setBackground(theme.background());
+        maintenanceLabel.setBackground(theme.background());
+        maintenanceLabel.setForeground(theme.textSecondary());
+
+        updateThemeToggleStates();
+        revalidate();
+        repaint();
+    }
+
+    private void setDarkMode(boolean enabled) {
+        if (darkMode == enabled) {
+            updateThemeToggleStates();
+            return;
+        }
+        darkMode = enabled;
+        theme = enabled ? DARK_THEME : LIGHT_THEME;
+        rebuildTabs();
+        refreshAll();
+    }
+
+    private void updateThemeToggleStates() {
+        for (JToggleButton toggle : themeToggles) {
+            toggle.setSelected(darkMode);
+            styleThemeToggle(toggle);
+        }
+    }
+
+    private void styleThemeToggle(JToggleButton toggle) {
+        toggle.setFocusPainted(false);
+        toggle.setBackground(darkMode ? BRAND_PRIMARY.darker() : theme.cardBackground());
+        toggle.setForeground(theme.textPrimary());
+        toggle.setBorder(BorderFactory.createLineBorder(theme.cardBorder()));
+        toggle.setOpaque(true);
+        toggle.setText(darkMode ? "🌙" : "☀");
+    }
+
+    private JPanel buildCatalogPanel(JTabbedPane tabs) {
+        JTable table = new JTable(catalogModel);
+        styleDataTable(table);
+
+        JScrollPane scrollPane = createTableScrollPane(table);
+
+        JButton registerButton = new JButton("Register Section");
+        stylePrimaryAction(registerButton);
         registerButton.addActionListener(e -> {
             int row = table.getSelectedRow();
             if (row < 0) {
@@ -90,6 +208,7 @@ public final class StudentDashboardFrame extends JFrame {
         });
 
         JButton dropButton = new JButton("Drop Section…");
+        styleGhostButton(dropButton);
         dropButton.addActionListener(e -> {
             String sectionId = JOptionPane.showInputDialog(this, "Enter Section ID to drop");
             if (sectionId == null || sectionId.isBlank()) {
@@ -101,80 +220,89 @@ public final class StudentDashboardFrame extends JFrame {
         });
 
         JButton transcriptButton = new JButton("Download Transcript (CSV)");
+        styleSecondaryAction(transcriptButton);
         transcriptButton.addActionListener(e -> downloadTranscript());
 
-        JPanel actions = new JPanel();
-        actions.add(registerButton);
-        actions.add(dropButton);
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        actions.setOpaque(false);
+        actions.setBorder(BorderFactory.createEmptyBorder(16, 0, 0, 0));
         actions.add(transcriptButton);
+        actions.add(dropButton);
+        actions.add(registerButton);
 
-        panel.add(actions, BorderLayout.SOUTH);
-        return panel;
+        JPanel tableCard = createCardPanel();
+        tableCard.add(scrollPane, BorderLayout.CENTER);
+        tableCard.add(actions, BorderLayout.SOUTH);
+
+        JPanel body = new JPanel(new BorderLayout());
+        body.setOpaque(false);
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setOpaque(false);
+        wrapper.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
+        wrapper.add(tableCard, BorderLayout.CENTER);
+        body.add(wrapper, BorderLayout.CENTER);
+
+        return createPageLayout(
+                tabs,
+                "Course Catalog",
+                "Browse every open section, see real-time capacity, and take action instantly.",
+                body
+        );
     }
 
-    private JPanel buildTimetablePanel() {
-        JTable table = new JTable(timetableModel);
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JScrollPane(table), BorderLayout.CENTER);
-        return panel;
+    private JPanel buildTimetablePanel(JTabbedPane tabs) {
+        JScrollPane scrollPane = new JScrollPane(timetableGrid);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.getViewport().setBackground(theme.cardBackground());
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+
+        JPanel tableCard = createCardPanel();
+        tableCard.add(scrollPane, BorderLayout.CENTER);
+
+        JPanel body = new JPanel(new BorderLayout());
+        body.setOpaque(false);
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setOpaque(false);
+        wrapper.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
+        wrapper.add(tableCard, BorderLayout.CENTER);
+        body.add(wrapper, BorderLayout.CENTER);
+
+        return createPageLayout(
+                tabs,
+                "My Timetable",
+                "Visualize registered sections by day and time to avoid conflicts.",
+                body
+        );
     }
 
-    private JPanel buildGradesPanel() {
-        JTable table = new JTable(gradeModel);
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+    private JPanel buildGradesPanel(JTabbedPane tabs) {
+        JScrollPane scrollPane = new JScrollPane(gradeDeck);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.getViewport().setBackground(theme.cardBackground());
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
 
-        JTextArea tips = new JTextArea("""
-                Final grade uses instructor-provided weights.
-                Download the transcript from the Catalog tab for a CSV copy.
-                """);
-        tips.setEditable(false);
-        tips.setLineWrap(true);
-        tips.setWrapStyleWord(true);
-        tips.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-        panel.add(tips, BorderLayout.SOUTH);
-        return panel;
+        JPanel body = new JPanel(new BorderLayout());
+        body.setOpaque(false);
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setOpaque(false);
+        wrapper.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
+        wrapper.add(scrollPane, BorderLayout.CENTER);
+        body.add(wrapper, BorderLayout.CENTER);
+
+        return createPageLayout(
+                tabs,
+                "Grades Overview",
+                "Track component scores, weightings, and final averages per course.",
+                body
+        );
     }
 
     private JPanel buildHomePanel(JTabbedPane tabs) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
+        panel.setBackground(theme.background());
 
-        JPanel nav = new JPanel();
-        nav.setBackground(new Color(0, 158, 149, 40));
-        nav.setPreferredSize(new Dimension(60, 0));
-        nav.setLayout(new BoxLayout(nav, BoxLayout.Y_AXIS));
-        nav.setBorder(BorderFactory.createEmptyBorder(16, 12, 16, 12));
-
-        JButton hamburger = new JButton("\u2630");
-        hamburger.setAlignmentX(0.5f);
-        hamburger.setFocusPainted(false);
-        hamburger.setBackground(new Color(0, 158, 149, 120));
-        hamburger.setForeground(Color.WHITE);
-        hamburger.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-
-        JPanel menuLinks = new JPanel();
-        menuLinks.setOpaque(false);
-        menuLinks.setLayout(new BoxLayout(menuLinks, BoxLayout.Y_AXIS));
-        menuLinks.add(Box.createVerticalStrut(16));
-        menuLinks.add(createNavLink("Catalog", tabs, 1));
-        menuLinks.add(Box.createVerticalStrut(8));
-        menuLinks.add(createNavLink("Timetable", tabs, 2));
-        menuLinks.add(Box.createVerticalStrut(8));
-        menuLinks.add(createNavLink("Grades", tabs, 3));
-        menuLinks.add(Box.createVerticalGlue());
-        menuLinks.setVisible(false);
-
-        hamburger.addActionListener(e -> {
-            boolean show = !menuLinks.isVisible();
-            menuLinks.setVisible(show);
-            nav.revalidate();
-            nav.repaint();
-        });
-
-        nav.add(hamburger);
-        nav.add(menuLinks);
-
+        JPanel nav = createNavigationColumn(tabs);
         JPanel hero = new JPanel();
         hero.setOpaque(false);
         hero.setLayout(new BorderLayout());
@@ -184,11 +312,11 @@ public final class StudentDashboardFrame extends JFrame {
         header.setOpaque(false);
 
         JLabel welcome = new JLabel("Welcome, " + resolveDisplayName());
-        welcome.setForeground(new Color(0, 120, 120));
+        welcome.setForeground(theme.textPrimary());
         welcome.setFont(welcome.getFont().deriveFont(Font.BOLD, 28f));
 
         JLabel subtitle = new JLabel("Choose a section to get started.");
-        subtitle.setForeground(new Color(60, 70, 80));
+        subtitle.setForeground(theme.subtitleText());
         subtitle.setFont(subtitle.getFont().deriveFont(Font.PLAIN, 16f));
 
         JPanel welcomeBlock = new JPanel();
@@ -214,26 +342,562 @@ public final class StudentDashboardFrame extends JFrame {
         hero.add(quickLinks, BorderLayout.CENTER);
         hero.add(new JPanel(), BorderLayout.SOUTH);
 
+        JPanel heroWrapper = new JPanel(new BorderLayout());
+        heroWrapper.setOpaque(false);
+        heroWrapper.setBorder(BorderFactory.createEmptyBorder(0, 24, 0, 0));
+        heroWrapper.add(createThemeBar(), BorderLayout.NORTH);
+        heroWrapper.add(hero, BorderLayout.CENTER);
+
         panel.add(nav, BorderLayout.WEST);
-        panel.add(hero, BorderLayout.CENTER);
+        panel.add(heroWrapper, BorderLayout.CENTER);
         return panel;
+    }
+
+    private JPanel createNavigationColumn(JTabbedPane tabs) {
+        JPanel nav = new JPanel();
+        nav.setBackground(theme.navBackground());
+        nav.setPreferredSize(new Dimension(80, 0));
+        nav.setLayout(new BoxLayout(nav, BoxLayout.Y_AXIS));
+        nav.setBorder(BorderFactory.createEmptyBorder(16, 12, 16, 12));
+
+        JButton hamburger = new JButton("\u2630");
+        hamburger.setAlignmentX(0.5f);
+        hamburger.setFocusPainted(false);
+        hamburger.setBackground(BRAND_PRIMARY);
+        hamburger.setForeground(Color.WHITE);
+        hamburger.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+
+        JPanel menuLinks = new JPanel();
+        menuLinks.setOpaque(false);
+        menuLinks.setLayout(new BoxLayout(menuLinks, BoxLayout.Y_AXIS));
+        menuLinks.add(Box.createVerticalStrut(16));
+        menuLinks.add(createNavLink("Home", tabs, 0));
+        menuLinks.add(Box.createVerticalStrut(8));
+        menuLinks.add(createNavLink("Catalog", tabs, 1));
+        menuLinks.add(Box.createVerticalStrut(8));
+        menuLinks.add(createNavLink("Timetable", tabs, 2));
+        menuLinks.add(Box.createVerticalStrut(8));
+        menuLinks.add(createNavLink("Grades", tabs, 3));
+        menuLinks.add(Box.createVerticalGlue());
+        menuLinks.setVisible(false);
+
+        hamburger.addActionListener(e -> {
+            boolean show = !menuLinks.isVisible();
+            menuLinks.setVisible(show);
+            hamburger.setText(show ? "\u2715" : "\u2630");
+            nav.revalidate();
+            nav.repaint();
+        });
+
+        nav.add(hamburger);
+        nav.add(menuLinks);
+        return nav;
+    }
+
+    private JPanel createThemeBar() {
+        JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 4));
+        bar.setOpaque(true);
+        bar.setBackground(theme.chromeBackground());
+        bar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(theme.chromeBorder()),
+                BorderFactory.createEmptyBorder(4, 12, 4, 12)
+        ));
+
+        JLabel sun = new JLabel("☀");
+        sun.setForeground(theme.textSecondary());
+
+        JToggleButton toggle = new JToggleButton();
+        toggle.setPreferredSize(new Dimension(56, 24));
+        toggle.addActionListener(e -> setDarkMode(toggle.isSelected()));
+        themeToggles.add(toggle);
+        toggle.setSelected(darkMode);
+        styleThemeToggle(toggle);
+
+        JLabel moon = new JLabel("🌙");
+        moon.setForeground(theme.textSecondary());
+
+        bar.add(sun);
+        bar.add(toggle);
+        bar.add(moon);
+        return bar;
+    }
+
+    private JPanel createPageLayout(JTabbedPane tabs, String title, String subtitle, JComponent body) {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
+        panel.setBackground(theme.background());
+
+        JPanel nav = createNavigationColumn(tabs);
+
+        JPanel content = new JPanel(new BorderLayout());
+        content.setOpaque(false);
+        content.setBorder(BorderFactory.createEmptyBorder(0, 24, 0, 0));
+
+        JPanel header = new JPanel();
+        header.setOpaque(false);
+        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
+
+        JLabel titleLabel = new JLabel(title);
+        titleLabel.setForeground(theme.textPrimary());
+        titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 26f));
+
+        JLabel subtitleLabel = new JLabel(subtitle);
+        subtitleLabel.setForeground(theme.subtitleText());
+        subtitleLabel.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 0));
+
+        header.add(titleLabel);
+        header.add(subtitleLabel);
+
+        JPanel headerWrapper = new JPanel(new BorderLayout());
+        headerWrapper.setOpaque(false);
+        headerWrapper.add(createThemeBar(), BorderLayout.NORTH);
+        headerWrapper.add(header, BorderLayout.CENTER);
+
+        content.add(headerWrapper, BorderLayout.NORTH);
+        content.add(body, BorderLayout.CENTER);
+
+        panel.add(nav, BorderLayout.WEST);
+        panel.add(content, BorderLayout.CENTER);
+        return panel;
+    }
+
+    private JPanel createCardPanel() {
+        JPanel card = new JPanel(new BorderLayout());
+        card.setOpaque(true);
+        card.setBackground(theme.cardBackground());
+        card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(theme.cardBorder()),
+                BorderFactory.createEmptyBorder(16, 16, 16, 16)
+        ));
+        return card;
+    }
+
+    private JScrollPane createTableScrollPane(JTable table) {
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.getViewport().setBackground(theme.cardBackground());
+        return scrollPane;
+    }
+
+    private void styleDataTable(JTable table) {
+        table.setFillsViewportHeight(true);
+        table.setRowHeight(28);
+        table.setShowHorizontalLines(false);
+        table.setShowVerticalLines(false);
+        table.setIntercellSpacing(new Dimension(0, 1));
+        table.setAutoCreateRowSorter(true);
+        table.setSelectionBackground(theme.tableSelectionBackground());
+        table.setSelectionForeground(theme.tableSelectionForeground());
+        table.setBackground(theme.cardBackground());
+        table.setForeground(theme.textPrimary());
+        var header = table.getTableHeader();
+        header.setReorderingAllowed(false);
+        header.setBackground(theme.tableHeaderBackground());
+        header.setForeground(theme.tableHeaderText());
+        header.setOpaque(true);
+        header.setFont(header.getFont().deriveFont(Font.BOLD, 13f));
+    }
+
+    private void stylePrimaryAction(JButton button) {
+        button.setFocusPainted(false);
+        button.setBackground(BRAND_PRIMARY);
+        button.setForeground(Color.WHITE);
+        button.setBorder(BorderFactory.createEmptyBorder(10, 18, 10, 18));
+    }
+
+    private void styleSecondaryAction(JButton button) {
+        button.setFocusPainted(false);
+        button.setBackground(theme.cardBackground());
+        button.setForeground(theme.textPrimary());
+        button.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(theme.cardBorder()),
+                BorderFactory.createEmptyBorder(10, 18, 10, 18)
+        ));
+    }
+
+    private void styleGhostButton(JButton button) {
+        button.setFocusPainted(false);
+        button.setContentAreaFilled(false);
+        button.setForeground(theme.textSecondary());
+        button.setBorder(BorderFactory.createEmptyBorder(10, 12, 10, 12));
+    }
+
+    private final class TimetableGrid extends JPanel {
+
+        private List<ParsedEntry> entries = List.of();
+        private int minHour = DEFAULT_START_HOUR;
+        private int maxHour = DEFAULT_END_HOUR;
+
+        private TimetableGrid() {
+            setBackground(theme.cardBackground());
+        }
+
+        void setEntries(List<TimetableEntry> data) {
+            if (data == null || data.isEmpty()) {
+                entries = List.of();
+                minHour = DEFAULT_START_HOUR;
+                maxHour = DEFAULT_END_HOUR;
+                revalidate();
+                repaint();
+                return;
+            }
+
+            List<ParsedEntry> parsed = new ArrayList<>();
+            int detectedStart = DEFAULT_START_HOUR;
+            int detectedEnd = DEFAULT_END_HOUR;
+
+            for (TimetableEntry entry : data) {
+                ParsedEntry parsedEntry = toParsedEntry(entry);
+                if (parsedEntry == null) {
+                    continue;
+                }
+                parsed.add(parsedEntry);
+                detectedStart = Math.min(detectedStart, parsedEntry.start().getHour());
+                int entryEndHour = parsedEntry.end().getMinute() == 0
+                        ? parsedEntry.end().getHour()
+                        : parsedEntry.end().getHour() + 1;
+                detectedEnd = Math.max(detectedEnd, entryEndHour);
+            }
+
+            entries = parsed;
+            minHour = Math.min(detectedStart, DEFAULT_START_HOUR);
+            maxHour = Math.max(Math.max(detectedEnd, minHour + 1), DEFAULT_END_HOUR);
+            revalidate();
+            repaint();
+        }
+
+        void refreshTheme() {
+            setBackground(theme.cardBackground());
+            repaint();
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            int slotWidth = 130;
+            int slotHeight = 60;
+            int headerHeight = 40;
+            int timeColumnWidth = 80;
+            int hourSpan = maxHour - minHour;
+
+            int totalWidth = timeColumnWidth + WEEK_DAYS.size() * slotWidth;
+            int totalHeight = headerHeight + hourSpan * slotHeight;
+            Dimension preferred = new Dimension(totalWidth, totalHeight);
+            if (!preferred.equals(getPreferredSize())) {
+                setPreferredSize(preferred);
+            }
+
+            g2.setColor(theme.cardBackground());
+            g2.fillRect(0, 0, totalWidth, totalHeight);
+
+            drawHeaders(g2, timeColumnWidth, headerHeight, slotWidth, totalWidth);
+            drawGrid(g2, timeColumnWidth, headerHeight, slotWidth, slotHeight, hourSpan, totalWidth);
+            drawTimeLabels(g2, timeColumnWidth, headerHeight, slotHeight);
+            drawBlocks(g2, timeColumnWidth, headerHeight, slotWidth, slotHeight);
+
+            g2.dispose();
+        }
+
+        private void drawHeaders(Graphics2D g2, int timeColumnWidth, int headerHeight, int slotWidth, int totalWidth) {
+            g2.setFont(getFont().deriveFont(Font.BOLD, 14f));
+            g2.setColor(theme.tableHeaderBackground());
+            g2.fillRect(0, 0, totalWidth, headerHeight);
+            g2.setColor(theme.tableHeaderText());
+            g2.drawString("Time", 16, headerHeight - 12);
+
+            for (int i = 0; i < WEEK_DAYS.size(); i++) {
+                int x = timeColumnWidth + i * slotWidth;
+                g2.setColor(theme.tableHeaderBackground());
+                g2.fillRect(x, 0, slotWidth, headerHeight);
+                g2.setColor(theme.tableHeaderText());
+                String label = prettyDayLabel(WEEK_DAYS.get(i));
+                int textWidth = g2.getFontMetrics().stringWidth(label);
+                g2.drawString(label, x + (slotWidth - textWidth) / 2, headerHeight - 12);
+            }
+        }
+
+        private void drawGrid(Graphics2D g2, int timeColumnWidth, int headerHeight, int slotWidth, int slotHeight, int hourSpan, int totalWidth) {
+            g2.setColor(theme.gridLine());
+            for (int i = 0; i <= WEEK_DAYS.size(); i++) {
+                int x = timeColumnWidth + i * slotWidth;
+                g2.drawLine(x, headerHeight, x, headerHeight + hourSpan * slotHeight);
+            }
+            for (int hour = 0; hour <= hourSpan; hour++) {
+                int y = headerHeight + hour * slotHeight;
+                g2.drawLine(0, y, totalWidth, y);
+            }
+        }
+
+        private void drawTimeLabels(Graphics2D g2, int timeColumnWidth, int headerHeight, int slotHeight) {
+            g2.setFont(getFont().deriveFont(Font.PLAIN, 12f));
+            g2.setColor(theme.textSecondary());
+            for (int hour = minHour; hour < maxHour; hour++) {
+                int y = headerHeight + (hour - minHour) * slotHeight;
+                g2.drawString(formatHourLabel(hour), 16, y + slotHeight - 12);
+            }
+        }
+
+        private void drawBlocks(Graphics2D g2, int timeColumnWidth, int headerHeight, int slotWidth, int slotHeight) {
+            if (entries.isEmpty()) {
+                g2.setFont(getFont().deriveFont(Font.ITALIC, 13f));
+                g2.setColor(theme.placeholderText());
+                g2.drawString("No registered sections yet.", timeColumnWidth + 24, headerHeight + 40);
+                return;
+            }
+
+            for (ParsedEntry block : entries) {
+                double startOffset = hoursFromStart(block.start());
+                double endOffset = hoursFromStart(block.end());
+                int blockX = timeColumnWidth + block.dayIndex() * slotWidth + 6;
+                int blockY = headerHeight + (int) Math.round(startOffset * slotHeight) + 4;
+                int blockWidth = slotWidth - 12;
+                int blockHeight = Math.max(24, (int) Math.round((endOffset - startOffset) * slotHeight) - 8);
+
+                g2.setColor(block.color());
+                g2.fillRoundRect(blockX, blockY, blockWidth, blockHeight, 16, 16);
+                g2.setColor(new Color(0, 0, 0, 40));
+                g2.drawRoundRect(blockX, blockY, blockWidth, blockHeight, 16, 16);
+
+                int textY = blockY + 20;
+                g2.setFont(getFont().deriveFont(Font.BOLD, 13f));
+                g2.setColor(Color.WHITE);
+                g2.drawString(block.entry().courseCode() + " – " + block.entry().sectionId(), blockX + 12, textY);
+
+                g2.setFont(getFont().deriveFont(Font.PLAIN, 11f));
+                g2.drawString(block.entry().room() + " • " + block.entry().timeRange(), blockX + 12, textY + 16);
+            }
+        }
+
+        private double hoursFromStart(LocalTime time) {
+            int minutesFromStart = (time.getHour() * 60 + time.getMinute()) - (minHour * 60);
+            return Math.max(0, minutesFromStart / 60d);
+        }
+
+        private ParsedEntry toParsedEntry(TimetableEntry entry) {
+            if (entry == null) {
+                return null;
+            }
+            int dayIndex = WEEK_DAYS.indexOf(normalizeDay(entry.day()));
+            if (dayIndex < 0) {
+                return null;
+            }
+            LocalTime[] range = parseTimeRange(entry.timeRange());
+            if (range == null) {
+                return null;
+            }
+            Color color = colorForCourse(entry.courseCode());
+            return new ParsedEntry(dayIndex, range[0], range[1], entry, color);
+        }
+    }
+
+    private record ParsedEntry(int dayIndex, LocalTime start, LocalTime end, TimetableEntry entry, Color color) {
+    }
+
+    private final class GradeDeckPanel extends JPanel {
+
+        private GradeDeckPanel() {
+            setOpaque(false);
+            setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+            setBorder(BorderFactory.createEmptyBorder(0, 4, 12, 4));
+        }
+
+        void setGrades(List<GradeView> views) {
+            removeAll();
+            boolean hasCards = views != null && !views.isEmpty();
+            if (!hasCards) {
+                add(createNoGradesCard());
+            } else {
+                for (GradeView view : views) {
+                    add(createGradeCard(view));
+                    add(Box.createVerticalStrut(16));
+                }
+            }
+            add(Box.createVerticalStrut(8));
+            add(createInfoBanner());
+            revalidate();
+            repaint();
+        }
+
+        private JPanel createGradeCard(GradeView view) {
+            JPanel card = createCardPanel();
+            card.setLayout(new BorderLayout(0, 12));
+
+            JPanel header = new JPanel(new BorderLayout());
+            header.setOpaque(false);
+
+            JLabel title = new JLabel(view.courseCode() + " • " + view.sectionId());
+            title.setFont(title.getFont().deriveFont(Font.BOLD, 16f));
+            title.setForeground(theme.textPrimary());
+
+            JLabel finalGrade = new JLabel("Final: " + format(view.finalGrade()));
+            finalGrade.setFont(finalGrade.getFont().deriveFont(Font.BOLD, 16f));
+            finalGrade.setForeground(BRAND_PRIMARY);
+
+            header.add(title, BorderLayout.WEST);
+            header.add(finalGrade, BorderLayout.EAST);
+
+            card.add(header, BorderLayout.NORTH);
+
+            if (view.components().isEmpty()) {
+                JLabel placeholder = new JLabel("No component scores posted yet.");
+                placeholder.setForeground(theme.placeholderText());
+                placeholder.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
+                card.add(placeholder, BorderLayout.CENTER);
+            } else {
+                JTable table = createComponentTable(view);
+                JScrollPane scrollPane = createTableScrollPane(table);
+                card.add(scrollPane, BorderLayout.CENTER);
+            }
+
+            return card;
+        }
+
+        private JTable createComponentTable(GradeView view) {
+            DefaultTableModel model = new DefaultTableModel(new Object[] {"Component", "Score", "Weight"}, 0) {
+                @Override
+                public boolean isCellEditable(int row, int column) {
+                    return false;
+                }
+            };
+
+            for (GradeView.ComponentScore component : view.components()) {
+                model.addRow(new Object[] {
+                        component.name(),
+                        format(component.score()),
+                        formatPercent(component.weight())
+                });
+            }
+
+            JTable table = new JTable(model);
+            styleDataTable(table);
+            table.setAutoCreateRowSorter(false);
+            table.setRowHeight(26);
+            return table;
+        }
+
+        private JPanel createNoGradesCard() {
+            JPanel card = createCardPanel();
+            card.setLayout(new BorderLayout());
+            JLabel label = new JLabel("No grades posted yet. Check back after instructors publish results.");
+            label.setForeground(theme.placeholderText());
+            card.add(label, BorderLayout.CENTER);
+            return card;
+        }
+
+        private JPanel createInfoBanner() {
+            JTextArea tips = new JTextArea("""
+                    Final grade uses instructor-provided weights. Download the transcript from the Catalog tab for a CSV copy.
+                    """);
+            tips.setEditable(false);
+            tips.setLineWrap(true);
+            tips.setWrapStyleWord(true);
+            tips.setBackground(theme.infoBackground());
+            tips.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+            tips.setForeground(theme.infoText());
+
+            JPanel panel = new JPanel(new BorderLayout());
+            panel.setOpaque(false);
+            panel.add(tips, BorderLayout.CENTER);
+            return panel;
+        }
+    }
+
+    private static String prettyDayLabel(String day) {
+        if (day == null || day.isBlank()) {
+            return "";
+        }
+        String lower = day.toLowerCase();
+        return Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
+    }
+
+    private static String formatHourLabel(int hour) {
+        int normalized = ((hour % 24) + 24) % 24;
+        return String.format("%02d:00", normalized);
+    }
+
+    private static String normalizeDay(String value) {
+        return value == null ? "" : value.trim().toUpperCase();
+    }
+
+    private static LocalTime[] parseTimeRange(String timeRange) {
+        if (timeRange == null || timeRange.isBlank()) {
+            return null;
+        }
+        String normalized = timeRange.replace("–", "-");
+        String[] parts = normalized.split("-");
+        if (parts.length != 2) {
+            return null;
+        }
+        try {
+            LocalTime start = LocalTime.parse(parts[0].trim());
+            LocalTime end = LocalTime.parse(parts[1].trim());
+            return new LocalTime[] {start, end};
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private static Color colorForCourse(String courseCode) {
+        if (courseCode == null) {
+            courseCode = "";
+        }
+        int index = Math.abs(courseCode.hashCode());
+        return BLOCK_COLORS[index % BLOCK_COLORS.length];
+    }
+
+    private static String formatPercent(Double weight) {
+        if (weight == null) {
+            return "-";
+        }
+        double value = weight <= 1 ? weight * 100 : weight;
+        if (Math.abs(value - Math.round(value)) < 0.01) {
+            return String.format("%.0f%%", value);
+        }
+        return String.format("%.1f%%", value);
+    }
+
+    private record ThemePalette(
+            Color background,
+            Color cardBackground,
+            Color cardBorder,
+            Color navBackground,
+            Color navButtonBackground,
+            Color navButtonForeground,
+            Color textPrimary,
+            Color textSecondary,
+            Color subtitleText,
+            Color tableHeaderBackground,
+            Color tableHeaderText,
+            Color tableSelectionBackground,
+            Color tableSelectionForeground,
+            Color infoBackground,
+            Color infoText,
+            Color placeholderText,
+            Color gridLine,
+            Color chromeBackground,
+            Color chromeBorder
+    ) {
     }
 
     private JButton createNavLink(String text, JTabbedPane tabs, int tabIndex) {
         JButton button = new JButton(text);
         button.setAlignmentX(0f);
         button.setFocusPainted(false);
-        button.setBackground(new Color(255, 255, 255, 200));
+        button.setBackground(theme.navButtonBackground());
+        button.setForeground(theme.navButtonForeground());
+        button.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+        button.setOpaque(true);
+        button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
         button.addActionListener(e -> tabs.setSelectedIndex(tabIndex));
         return button;
     }
 
     private JButton createPrimaryButton(String text, JTabbedPane tabs, int tabIndex) {
         JButton button = new JButton(text);
-        button.setFocusPainted(false);
-        button.setBackground(new Color(0, 158, 149));
-        button.setForeground(Color.WHITE);
-        button.setBorder(BorderFactory.createEmptyBorder(10, 18, 10, 18));
+        stylePrimaryAction(button);
         button.addActionListener(e -> tabs.setSelectedIndex(tabIndex));
         return button;
     }
@@ -285,44 +949,21 @@ public final class StudentDashboardFrame extends JFrame {
     }
 
     private void loadTimetable() {
-        timetableModel.setRowCount(0);
         var result = studentService.viewTimetable(studentId);
         if (!result.isSuccess()) {
+            timetableGrid.setEntries(List.of());
             return;
         }
-        for (TimetableEntry entry : result.getPayload().orElse(List.of())) {
-            timetableModel.addRow(new Object[] {
-                    entry.day(),
-                    entry.timeRange(),
-                    entry.courseCode(),
-                    entry.sectionId(),
-                    entry.room()
-            });
-        }
+        timetableGrid.setEntries(result.getPayload().orElse(List.of()));
     }
 
     private void loadGrades() {
-        gradeModel.setRowCount(0);
         var result = studentService.viewGrades(studentId);
         if (!result.isSuccess()) {
+            gradeDeck.setGrades(List.of());
             return;
         }
-        for (GradeView view : result.getPayload().orElse(List.of())) {
-            if (view.components().isEmpty()) {
-                gradeModel.addRow(new Object[] {view.courseCode(), view.sectionId(), "-", "-", "-", format(view.finalGrade())});
-                continue;
-            }
-            for (GradeView.ComponentScore component : view.components()) {
-                gradeModel.addRow(new Object[] {
-                        view.courseCode(),
-                        view.sectionId(),
-                        component.name(),
-                        component.score(),
-                        component.weight(),
-                        format(view.finalGrade())
-                });
-            }
-        }
+        gradeDeck.setGrades(result.getPayload().orElse(List.of()));
     }
 
     private void downloadTranscript() {
