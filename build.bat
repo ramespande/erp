@@ -24,6 +24,12 @@ if not exist sources-main.txt (
 javac -d out\classes -classpath "%CLASSPATH%" @sources-main.txt
 del sources-main.txt
 
+set RESOURCE_DIR=src\main\resources
+if not exist %RESOURCE_DIR% set RESOURCE_DIR=src\resources
+if exist %RESOURCE_DIR% (
+    xcopy /e /y /q %RESOURCE_DIR% out\classes >nul
+)
+
 echo Compiled application classes into out\classes
 echo To run: set MAIN_CLASS=%MAIN_CLASS% ^&^& run.bat
 

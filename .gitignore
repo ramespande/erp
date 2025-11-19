@@ -1,6 +1,5 @@
 /out/
 /dist/
-/.gradle/
 /build/
 *.class
 lib/*.jar

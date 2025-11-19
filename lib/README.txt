@@ -1,9 +1,8 @@
 University ERP – Third-party Libraries
 ======================================
 
-This project no longer uses Gradle/Maven. Download the following JARs
-from Maven Central (or your preferred mirror) and place them in this
-`lib/` folder before running the build scripts.
+Download the following JARs from Maven Central (or your preferred mirror)
+and place them in this `lib/` folder before running the build scripts.
 
 Runtime dependencies
 --------------------
@@ -70,6 +69,6 @@ curl -L -o lib/flatlaf-3.4.jar https://repo1.maven.org/maven2/com/formdev/flatla
 ```
 
 Ensure every JAR listed above resides inside `lib/` before running
-`build.sh` / `build.bat`. The scripts automatically assemble the
-classpath by including all files in this directory.
+`build.bat`. The script automatically assembles the classpath by
+including all files in this directory.
 

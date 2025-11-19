@@ -17,7 +17,7 @@ This repository contains a standalone desktop ERP prototype for universities. It
 | Persistence | In-memory seed store (H2-ready repositories wired later) |
 | Security | jBCrypt password hashing |
 | Exports | OpenCSV, PDFBox (CSV implemented, PDF planned) |
-| Build | Plain Java (javac + `build.sh`/`build.bat`) |
+| Build | Plain Java (javac + `build.bat`) |
 
 ## Quick Start
 
@@ -25,11 +25,11 @@ This repository contains a standalone desktop ERP prototype for universities. It
 2. Download the required third-party jars listed in `lib/README.txt` and place them in `lib/`.
 3. Build the project:
    ```
-   ./build.sh        # or .\build.bat on Windows
+   .\build.bat
    ```
 4. Run the desktop app (MAIN_CLASS defaults to `edu.univ.erp.Application`):
    ```
-   ./run.sh          # or .\run.bat
+   .\run.bat
    ```
 5. Login with any seeded account:
 
@@ -64,10 +64,10 @@ src/main/java/edu/univ/erp/
 
 ## Build, Run & Package
 
-- `build.sh` / `build.bat`: compiles sources into `out/classes`.
-- `run.sh` / `run.bat`: launches the app (set `MAIN_CLASS` if you change the entry point).
-- `package.sh` / `package.bat`: creates `dist/erp-app` (classes + libs + helper scripts) and a plain `dist/erp-app.jar`.
-- `run-tests.sh` / `run-tests.bat`: compiles and executes JUnit tests using the `junit-platform-console-standalone` jar you place in `lib/`.
+- `build.bat`: compiles sources into `out/classes`.
+- `run.bat`: launches the app (set `MAIN_CLASS` if you change the entry point).
+- `package.bat`: creates `dist/erp-app` (classes + libs + helper scripts) and a plain `dist/erp-app.jar`.
+- `run-tests.bat`: compiles and executes JUnit tests using the `junit-platform-console-standalone` jar you place in `lib/`.
 
 ## Dependencies
 
@@ -78,7 +78,7 @@ All third-party jars are managed manually through the `lib/` directory. See `lib
 After populating `lib/` with the runtime and test jars:
 
 ```
-./run-tests.sh          # or .\run-tests.bat
+.\run-tests.bat
 ```
 
 The suite covers student registration/drop flows, instructor grading, and maintenance toggling logic.

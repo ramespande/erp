@@ -18,7 +18,7 @@
 ### Technology Stack
 | Concern | Choice |
 | --- | --- |
-| Build | Gradle (Java 21, application + shadow plugin for packaging) |
+| Build | Plain scripts (Java 21 via `build.bat`) |
 | UI | Swing + FlatLaf (Look & Feel) + MigLayout |
 | DB | MySQL (prod), H2 (dev/test). Separate schemas: `auth_db`, `erp_db`. |
 | JDBC | HikariCP pooled connections |
@@ -28,7 +28,7 @@
 | Logging | SLF4J + Logback |
 
 ### Milestones (Adaptive 8-Week Plan)
-1. **Week 1** – Requirements deep dive, UX wireframes, schema draft, choose tech stack, bootstrap Gradle + package layout.
+1. **Week 1** – Requirements deep dive, UX wireframes, schema draft, choose tech stack, bootstrap script-based build + package layout.
 2. **Week 2** – Implement dual DB schema (Flyway scripts), seed sample users/data, core domain objects, and DAO interfaces.
 3. **Week 3** – Auth flow (login/logout, maintenance banner hook), dashboards per role, OperationResult messaging.
 4. **Week 4** – Student flows (catalog, registration/drop with checks, timetable, grades view, transcript CSV export).
@@ -43,7 +43,7 @@
 - Sample credentials: `admin1/admin123`, `inst1/inst123`, `stu1/stu123`, `stu2/stu123` (stored as bcrypt hashes).
 
 ### Next Steps
-1. Configure Gradle multi-module layout (`app`, `data`, `auth`, `ui` packages share a single build).
+1. Finalize script-first multi-module layout (`app`, `data`, `auth`, `ui` packages share a single build).
 2. Scaffold source directories with base classes/interfaces.
 3. Add Flyway migration scripts and sample seed data.
 4. Implement Auth + Maintenance foundations before feature flows.
