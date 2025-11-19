@@ -7,6 +7,9 @@ import edu.univ.erp.infra.ServiceLocator;
 import edu.univ.erp.service.StudentService;
 
 import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -20,6 +23,10 @@ import javax.swing.JTextArea;
 import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -50,9 +57,11 @@ public final class StudentDashboardFrame extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         JTabbedPane tabs = new JTabbedPane();
+        tabs.addTab("Home", buildHomePanel(tabs));
         tabs.addTab("Catalog", buildCatalogPanel());
         tabs.addTab("Timetable", buildTimetablePanel());
         tabs.addTab("Grades", buildGradesPanel());
+        tabs.setSelectedIndex(0);
 
         maintenanceLabel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
 
@@ -125,6 +134,124 @@ public final class StudentDashboardFrame extends JFrame {
         tips.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
         panel.add(tips, BorderLayout.SOUTH);
         return panel;
+    }
+
+    private JPanel buildHomePanel(JTabbedPane tabs) {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
+
+        JPanel nav = new JPanel();
+        nav.setBackground(new Color(0, 158, 149, 40));
+        nav.setPreferredSize(new Dimension(60, 0));
+        nav.setLayout(new BoxLayout(nav, BoxLayout.Y_AXIS));
+        nav.setBorder(BorderFactory.createEmptyBorder(16, 12, 16, 12));
+
+        JButton hamburger = new JButton("\u2630");
+        hamburger.setAlignmentX(0.5f);
+        hamburger.setFocusPainted(false);
+        hamburger.setBackground(new Color(0, 158, 149, 120));
+        hamburger.setForeground(Color.WHITE);
+        hamburger.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+
+        JPanel menuLinks = new JPanel();
+        menuLinks.setOpaque(false);
+        menuLinks.setLayout(new BoxLayout(menuLinks, BoxLayout.Y_AXIS));
+        menuLinks.add(Box.createVerticalStrut(16));
+        menuLinks.add(createNavLink("Catalog", tabs, 1));
+        menuLinks.add(Box.createVerticalStrut(8));
+        menuLinks.add(createNavLink("Timetable", tabs, 2));
+        menuLinks.add(Box.createVerticalStrut(8));
+        menuLinks.add(createNavLink("Grades", tabs, 3));
+        menuLinks.add(Box.createVerticalGlue());
+        menuLinks.setVisible(false);
+
+        hamburger.addActionListener(e -> {
+            boolean show = !menuLinks.isVisible();
+            menuLinks.setVisible(show);
+            nav.revalidate();
+            nav.repaint();
+        });
+
+        nav.add(hamburger);
+        nav.add(menuLinks);
+
+        JPanel hero = new JPanel();
+        hero.setOpaque(false);
+        hero.setLayout(new BorderLayout());
+        hero.setBorder(BorderFactory.createEmptyBorder(0, 32, 32, 32));
+
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(false);
+
+        JLabel welcome = new JLabel("Welcome, " + resolveDisplayName());
+        welcome.setForeground(new Color(0, 120, 120));
+        welcome.setFont(welcome.getFont().deriveFont(Font.BOLD, 28f));
+
+        JLabel subtitle = new JLabel("Choose a section to get started.");
+        subtitle.setForeground(new Color(60, 70, 80));
+        subtitle.setFont(subtitle.getFont().deriveFont(Font.PLAIN, 16f));
+
+        JPanel welcomeBlock = new JPanel();
+        welcomeBlock.setOpaque(false);
+        welcomeBlock.setLayout(new BoxLayout(welcomeBlock, BoxLayout.Y_AXIS));
+        welcomeBlock.add(welcome);
+        welcomeBlock.add(Box.createVerticalStrut(6));
+        welcomeBlock.add(subtitle);
+
+        JLabel logo = new JLabel(loadLogoIcon(140, 90));
+        logo.setHorizontalAlignment(SwingConstants.RIGHT);
+
+        header.add(welcomeBlock, BorderLayout.WEST);
+        header.add(logo, BorderLayout.EAST);
+
+        JPanel quickLinks = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 8));
+        quickLinks.setOpaque(false);
+        quickLinks.add(createPrimaryButton("Go to Catalog", tabs, 1));
+        quickLinks.add(createPrimaryButton("View Timetable", tabs, 2));
+        quickLinks.add(createPrimaryButton("Check Grades", tabs, 3));
+
+        hero.add(header, BorderLayout.NORTH);
+        hero.add(quickLinks, BorderLayout.CENTER);
+        hero.add(new JPanel(), BorderLayout.SOUTH);
+
+        panel.add(nav, BorderLayout.WEST);
+        panel.add(hero, BorderLayout.CENTER);
+        return panel;
+    }
+
+    private JButton createNavLink(String text, JTabbedPane tabs, int tabIndex) {
+        JButton button = new JButton(text);
+        button.setAlignmentX(0f);
+        button.setFocusPainted(false);
+        button.setBackground(new Color(255, 255, 255, 200));
+        button.addActionListener(e -> tabs.setSelectedIndex(tabIndex));
+        return button;
+    }
+
+    private JButton createPrimaryButton(String text, JTabbedPane tabs, int tabIndex) {
+        JButton button = new JButton(text);
+        button.setFocusPainted(false);
+        button.setBackground(new Color(0, 158, 149));
+        button.setForeground(Color.WHITE);
+        button.setBorder(BorderFactory.createEmptyBorder(10, 18, 10, 18));
+        button.addActionListener(e -> tabs.setSelectedIndex(tabIndex));
+        return button;
+    }
+
+    private ImageIcon loadLogoIcon(int width, int height) {
+        var url = StudentDashboardFrame.class.getResource("/images/iiitdlogo.png");
+        if (url == null) {
+            return null;
+        }
+        return new ImageIcon(new ImageIcon(url).getImage().getScaledInstance(width, height, java.awt.Image.SCALE_SMOOTH));
+    }
+
+    private String resolveDisplayName() {
+        var session = ServiceLocator.sessionContext();
+        if (session != null && session.getUsername() != null && !session.getUsername().isBlank()) {
+            return session.getUsername();
+        }
+        return studentId;
     }
 
     private void refreshAll() {
