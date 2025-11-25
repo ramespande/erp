@@ -105,7 +105,7 @@ CREATE TABLE enrollments (
     enrollment_id VARCHAR(50) PRIMARY KEY,
     student_id VARCHAR(50) NOT NULL,
     section_id VARCHAR(50) NOT NULL,
-    status ENUM('ENROLLED', 'DROPPED', 'WITHDRAWN', 'COMPLETED') NOT NULL DEFAULT 'ENROLLED',
+    status ENUM('ACTIVE', 'DROPPED') NOT NULL DEFAULT 'ACTIVE',
     enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
@@ -200,13 +200,13 @@ INSERT INTO sections (section_id, course_id, instructor_id, day_of_week, start_t
 
 -- Enrollments
 INSERT INTO enrollments (enrollment_id, student_id, section_id, status) VALUES
-('ENR-001', 'USR-STU-001', 'SEC-001', 'ENROLLED'),
-('ENR-002', 'USR-STU-001', 'SEC-003', 'ENROLLED'),
-('ENR-003', 'USR-STU-001', 'SEC-004', 'ENROLLED'),
-('ENR-004', 'USR-STU-002', 'SEC-001', 'ENROLLED'),
-('ENR-005', 'USR-STU-002', 'SEC-005', 'ENROLLED'),
-('ENR-006', 'USR-STU-003', 'SEC-004', 'ENROLLED'),
-('ENR-007', 'USR-STU-003', 'SEC-005', 'ENROLLED');
+('ENR-001', 'USR-STU-001', 'SEC-001', 'ACTIVE'),
+('ENR-002', 'USR-STU-001', 'SEC-003', 'ACTIVE'),
+('ENR-003', 'USR-STU-001', 'SEC-004', 'ACTIVE'),
+('ENR-004', 'USR-STU-002', 'SEC-001', 'ACTIVE'),
+('ENR-005', 'USR-STU-002', 'SEC-005', 'ACTIVE'),
+('ENR-006', 'USR-STU-003', 'SEC-004', 'ACTIVE'),
+('ENR-007', 'USR-STU-003', 'SEC-005', 'ACTIVE');
 
 -- Grade Books (some with final grades, some without)
 INSERT INTO grade_books (enrollment_id, final_grade) VALUES
