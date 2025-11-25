@@ -1,8 +1,10 @@
 package edu.univ.erp.domain.instructor;
 
+import java.io.Serializable;
 import java.util.Objects;
 
-public final class Instructor {
+public final class Instructor implements Serializable {
+    private static final long serialVersionUID = 1L;
     private final String userId;
     private final String department;
     private final String title;

@@ -1,11 +1,13 @@
 package edu.univ.erp.domain.course;
 
+import java.io.Serializable;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Objects;
 
-public final class Section {
+public final class Section implements Serializable {
+    private static final long serialVersionUID = 1L;
     private final String sectionId;
     private final String courseId;
     private final String instructorId;

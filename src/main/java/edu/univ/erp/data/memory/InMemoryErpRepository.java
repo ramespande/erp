@@ -29,6 +29,7 @@ public final class InMemoryErpRepository implements ErpRepository {
     @Override
     public void saveStudent(Student student) {
         store.students().put(student.getUserId(), student);
+        store.save();
     }
 
     @Override
@@ -39,6 +40,7 @@ public final class InMemoryErpRepository implements ErpRepository {
     @Override
     public void saveInstructor(Instructor instructor) {
         store.instructors().put(instructor.getUserId(), instructor);
+        store.save();
     }
 
     @Override
@@ -54,6 +56,7 @@ public final class InMemoryErpRepository implements ErpRepository {
     @Override
     public void saveCourse(Course course) {
         store.courses().put(course.getCourseId(), course);
+        store.save();
     }
 
     @Override
@@ -69,6 +72,7 @@ public final class InMemoryErpRepository implements ErpRepository {
     @Override
     public void saveSection(Section section) {
         store.sections().put(section.getSectionId(), section);
+        store.save();
     }
 
     @Override
@@ -98,11 +102,13 @@ public final class InMemoryErpRepository implements ErpRepository {
     @Override
     public void saveEnrollment(Enrollment enrollment) {
         store.enrollments().put(enrollment.getEnrollmentId(), enrollment);
+        store.save();
     }
 
     @Override
     public void deleteEnrollment(String enrollmentId) {
         store.enrollments().remove(enrollmentId);
+        store.save();
     }
 
     @Override
@@ -113,6 +119,7 @@ public final class InMemoryErpRepository implements ErpRepository {
     @Override
     public void saveGradeBook(GradeBook gradeBook) {
         store.gradeBooks().put(gradeBook.getEnrollmentId(), gradeBook);
+        store.save();
     }
 
     @Override
@@ -123,6 +130,7 @@ public final class InMemoryErpRepository implements ErpRepository {
     @Override
     public void saveMaintenanceSetting(boolean maintenanceOn) {
         store.setMaintenanceSetting(maintenanceOn);
+        store.save();
     }
 }
 

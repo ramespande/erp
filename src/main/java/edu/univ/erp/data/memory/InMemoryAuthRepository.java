@@ -32,6 +32,7 @@ public final class InMemoryAuthRepository implements AuthRepository {
     @Override
     public void save(AuthRecord record) {
         store.authRecords().put(record.userId(), record);
+        store.save();
     }
 
     @Override

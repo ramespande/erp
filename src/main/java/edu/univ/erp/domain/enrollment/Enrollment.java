@@ -1,8 +1,10 @@
 package edu.univ.erp.domain.enrollment;
 
+import java.io.Serializable;
 import java.util.Objects;
 
-public final class Enrollment {
+public final class Enrollment implements Serializable {
+    private static final long serialVersionUID = 1L;
     private final String enrollmentId;
     private final String studentId;
     private final String sectionId;

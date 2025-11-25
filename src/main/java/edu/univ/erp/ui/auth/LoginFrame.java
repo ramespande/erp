@@ -54,7 +54,7 @@ public final class LoginFrame extends JFrame {
     private final JButton loginButton = new JButton("Login");
 
     public LoginFrame() {
-        super("University ERP — Login");
+        super("University ERP - Login");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setMinimumSize(new Dimension(980, 600));
         setLocationRelativeTo(null);
@@ -104,7 +104,7 @@ public final class LoginFrame extends JFrame {
         usernameField.setText("");
         styleField(passwordField, null);
         passwordField.setText("");
-        passwordField.setEchoChar('•');
+        passwordField.setEchoChar('*');
 
         JPanel fields = new JPanel();
         fields.setOpaque(false);

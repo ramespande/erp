@@ -1,8 +1,10 @@
 package edu.univ.erp.domain.student;
 
+import java.io.Serializable;
 import java.util.Objects;
 
-public final class Student {
+public final class Student implements Serializable {
+    private static final long serialVersionUID = 1L;
     private final String userId;
     private final String rollNumber;
     private final String program;

@@ -1,11 +1,13 @@
 package edu.univ.erp.domain.grade;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-public final class GradeBook {
+public final class GradeBook implements Serializable {
+    private static final long serialVersionUID = 1L;
     private final String enrollmentId;
     private final List<GradeComponent> components;
     private final Double finalGrade;

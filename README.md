@@ -14,7 +14,7 @@ This repository contains a standalone desktop ERP prototype for universities. It
 | --- | --- |
 | Language | Java 21 |
 | UI | Swing + FlatLaf + MigLayout |
-| Persistence | In-memory seed store (H2-ready repositories wired later) |
+| Persistence | MySQL (separate auth + ERP schemas) via HikariCP |
 | Security | jBCrypt password hashing |
 | Exports | OpenCSV, PDFBox (CSV implemented, PDF planned) |
 | Build | Plain Java (javac + `build.bat`) |
@@ -71,7 +71,29 @@ src/main/java/edu/univ/erp/
 
 ## Dependencies
 
-All third-party jars are managed manually through the `lib/` directory. See `lib/README.txt` for exact Maven coordinates and download commands (FlatLaf, MigLayout, jBCrypt, OpenCSV, PDFBox, HikariCP, H2, SLF4J/Logback, JUnit, Mockito, etc.).
+All third-party jars are managed manually through the `lib/` directory. See `lib/README.txt` for exact Maven coordinates and download commands (FlatLaf, MigLayout, jBCrypt, OpenCSV, PDFBox, HikariCP, MySQL Connector/J, SLF4J/Logback, JUnit, Mockito, etc.).
+
+## Data Persistence
+
+- The app expects **two MySQL schemas** (databases):
+  - `erp_auth` &rightarrow; table `auth_users` (user id, username, role, password hash, status, last login, failed attempts).
+  - `erp_data` &rightarrow; tables for students, instructors, courses, sections, enrollments, grade books/components, and `settings`.
+- Create them once (example):
+  ```
+  CREATE DATABASE erp_auth CHARACTER SET utf8mb4;
+  CREATE DATABASE erp_data CHARACTER SET utf8mb4;
+  CREATE USER 'erp_user'@'%' IDENTIFIED BY 'erp_pass';
+  GRANT ALL PRIVILEGES ON erp_auth.* TO 'erp_user'@'%';
+  GRANT ALL PRIVILEGES ON erp_data.* TO 'erp_user'@'%';
+  FLUSH PRIVILEGES;
+  ```
+- Configure connection info via environment variables (defaults shown):
+  - `ERP_AUTH_DB_URL` (default `jdbc:mysql://localhost:3306/erp_auth?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC`)
+  - `ERP_AUTH_DB_USER` / `ERP_AUTH_DB_PASSWORD`
+  - `ERP_DATA_DB_URL`, `ERP_DATA_DB_USER`, `ERP_DATA_DB_PASSWORD`
+  - Optional `ERP_DB_POOL_SIZE` for HikariCP (default `8`)
+- On startup the schema is auto-created (tables use `ENGINE=InnoDB`). Seed users (`admin1`, `inst1`, `stu1`, `stu2`) and demo ERP data are inserted if the tables are empty, so credentials persist between runs.
+- To reset, drop/re-create the schemas (or truncate the tables) before launching the app.
 
 ## Testing
 
@@ -85,7 +107,17 @@ The suite covers student registration/drop flows, instructor grading, and mainte
 
 ## Next Steps
 
-- Swap in actual JDBC repositories backed by MySQL/H2 (two schemas).
 - Flesh out instructor gradebook UI (per-student views) and add CSV import/export.
 - Implement PDF transcript, change password dialog, login attempt lockout.
 - Add Flyway migrations, full test plan, and demo assets under `docs/`.
+
+
+rijul version of what to do:
+
+. download mysql, add to path and all that, then do
+cmd
+mysql -u root -p < schema_auth.sql
+mysql -u root -p < schema_erp.sql
+this will create both the databases in your system
+. download mysql connector (read readme in src\lib)
+. put your mysql username(root) and password in config.bat

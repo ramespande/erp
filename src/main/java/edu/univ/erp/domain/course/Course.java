@@ -1,8 +1,10 @@
 package edu.univ.erp.domain.course;
 
+import java.io.Serializable;
 import java.util.Objects;
 
-public final class Course {
+public final class Course implements Serializable {
+    private static final long serialVersionUID = 1L;
     private final String courseId;
     private final String code;
     private final String title;

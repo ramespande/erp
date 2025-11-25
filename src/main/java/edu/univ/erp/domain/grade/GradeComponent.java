@@ -1,8 +1,10 @@
 package edu.univ.erp.domain.grade;
 
+import java.io.Serializable;
 import java.util.Objects;
 
-public final class GradeComponent {
+public final class GradeComponent implements Serializable {
+    private static final long serialVersionUID = 1L;
     private final String name;
     private final double score;
     private final double weight;

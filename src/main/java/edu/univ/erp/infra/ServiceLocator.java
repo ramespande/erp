@@ -4,9 +4,9 @@ import edu.univ.erp.access.AccessController;
 import edu.univ.erp.auth.SessionContext;
 import edu.univ.erp.data.auth.AuthRepository;
 import edu.univ.erp.data.erp.ErpRepository;
-import edu.univ.erp.data.memory.InMemoryAuthRepository;
-import edu.univ.erp.data.memory.InMemoryDataStore;
-import edu.univ.erp.data.memory.InMemoryErpRepository;
+import edu.univ.erp.data.jdbc.JdbcAuthRepository;
+import edu.univ.erp.data.jdbc.JdbcErpRepository;
+import javax.sql.DataSource;
 import edu.univ.erp.service.AdminService;
 import edu.univ.erp.service.AuthService;
 import edu.univ.erp.service.InstructorService;
@@ -20,12 +20,14 @@ import edu.univ.erp.service.impl.DefaultStudentService;
 
 public final class ServiceLocator {
 
-    private static final InMemoryDataStore DATA_STORE = InMemoryDataStore.seed();
     private static final AccessController ACCESS_CONTROLLER = new AccessController();
     private static final SessionContext SESSION_CONTEXT = new SessionContext();
 
-    private static final AuthRepository AUTH_REPOSITORY = new InMemoryAuthRepository(DATA_STORE);
-    private static final ErpRepository ERP_REPOSITORY = new InMemoryErpRepository(DATA_STORE);
+    private static final DataSource AUTH_DATA_SOURCE = DataSourceConfig.getAuthDataSource();
+    private static final DataSource ERP_DATA_SOURCE = DataSourceConfig.getErpDataSource();
+
+    private static final AuthRepository AUTH_REPOSITORY = new JdbcAuthRepository(AUTH_DATA_SOURCE);
+    private static final ErpRepository ERP_REPOSITORY = new JdbcErpRepository(ERP_DATA_SOURCE);
 
     static {
         ACCESS_CONTROLLER.setMaintenanceMode(ERP_REPOSITORY.getMaintenanceSetting().isMaintenanceOn());
@@ -66,6 +68,14 @@ public final class ServiceLocator {
 
     public static AccessController accessController() {
         return ACCESS_CONTROLLER;
+    }
+
+    /**
+     * Data is persisted immediately through JDBC, so this is a no-op that remains for
+     * backwards compatibility.
+     */
+    public static void saveData() {
+        // No-op: database writes are flushed on each transaction
     }
 }
 

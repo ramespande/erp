@@ -13,6 +13,15 @@ import edu.univ.erp.domain.settings.MaintenanceSetting;
 import edu.univ.erp.domain.student.Student;
 import edu.univ.erp.domain.user.Role;
 
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -23,7 +32,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public final class InMemoryDataStore {
+public final class InMemoryDataStore implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+    private static final String DATA_DIR = "data";
+    private static final String DATA_FILE = "erp-data.dat";
+    
+    private static Path getDataFilePath() {
+        // Try to use a data directory in the current working directory
+        // This ensures the file is always in a predictable location
+        Path dataDir = Paths.get(DATA_DIR);
+        try {
+            if (!Files.exists(dataDir)) {
+                Files.createDirectories(dataDir);
+            }
+        } catch (IOException e) {
+            System.err.println("Warning: Could not create data directory, using current directory: " + e.getMessage());
+            return Paths.get(DATA_FILE);
+        }
+        return dataDir.resolve(DATA_FILE);
+    }
 
     private final Map<String, AuthRecord> authRecords = new HashMap<>();
     private final Map<String, Student> students = new HashMap<>();
@@ -35,9 +63,45 @@ public final class InMemoryDataStore {
     private MaintenanceSetting maintenanceSetting = new MaintenanceSetting(false);
 
     public static InMemoryDataStore seed() {
-        InMemoryDataStore store = new InMemoryDataStore();
-        store.bootstrap();
+        InMemoryDataStore store = load();
+        if (store == null) {
+            store = new InMemoryDataStore();
+            store.bootstrap();
+            store.save();
+        }
         return store;
+    }
+
+    public static InMemoryDataStore load() {
+        Path dataPath = getDataFilePath();
+        if (!Files.exists(dataPath)) {
+            return null;
+        }
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(dataPath.toFile()))) {
+            return (InMemoryDataStore) ois.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            System.err.println("Failed to load data store: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public void save() {
+        Path dataPath = getDataFilePath();
+        try {
+            // Ensure parent directory exists
+            Path parent = dataPath.getParent();
+            if (parent != null && !Files.exists(parent)) {
+                Files.createDirectories(parent);
+            }
+            try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(dataPath.toFile()))) {
+                oos.writeObject(this);
+                oos.flush();
+            }
+        } catch (IOException e) {
+            System.err.println("Failed to save data store: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void bootstrap() {

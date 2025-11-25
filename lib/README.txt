@@ -35,9 +35,9 @@ Runtime dependencies
    Coordinate: com.zaxxer:HikariCP:5.1.0
    URL: https://repo1.maven.org/maven2/com/zaxxer/HikariCP/5.1.0/HikariCP-5.1.0.jar
 
-7. H2 database
-   Coordinate: com.h2database:h2:2.3.232
-   URL: https://repo1.maven.org/maven2/com/h2database/h2/2.3.232/h2-2.3.232.jar
+7. MySQL Connector/J (JDBC driver)
+   Coordinate: com.mysql:mysql-connector-j:8.4.0
+   URL: https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.4.0/mysql-connector-j-8.4.0.jar
 
 8. SLF4J + Logback
    - org.slf4j:slf4j-api:2.0.13

@@ -54,7 +54,21 @@ public final class DefaultAdminService implements AdminService {
                 true,
                 LocalDateTime.now(),
                 0));
-        return OperationResult.success(userId, "User created.");
+        
+        // Automatically create profile records for STUDENT and INSTRUCTOR roles,
+        // matching the pattern used in seed data
+        if (parsedRole == Role.STUDENT) {
+            // Create default student profile - admin can update details later
+            String rollNumber = username.toUpperCase() + "-ROLL";
+            Student student = new Student(userId, rollNumber, "B.Tech CS", 1);
+            erpRepository.saveStudent(student);
+        } else if (parsedRole == Role.INSTRUCTOR) {
+            // Create default instructor profile - admin can update details later
+            Instructor instructor = new Instructor(userId, "Computer Science", "Assistant Professor");
+            erpRepository.saveInstructor(instructor);
+        }
+        
+        return OperationResult.success(userId, "User created with profile.");
     }
 
     @Override
