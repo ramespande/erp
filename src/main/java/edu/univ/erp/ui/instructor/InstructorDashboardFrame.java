@@ -1,7 +1,9 @@
 package edu.univ.erp.ui.instructor;
 
+import edu.univ.erp.api.common.OperationResult;
 import edu.univ.erp.api.types.GradeView;
 import edu.univ.erp.infra.ServiceLocator;
+import edu.univ.erp.service.AuthService;
 import edu.univ.erp.service.InstructorService;
 
 import javax.swing.JButton;
@@ -22,6 +24,7 @@ import java.util.Map;
 public final class InstructorDashboardFrame extends JFrame {
 
     private final InstructorService instructorService = ServiceLocator.instructorService();
+    private final AuthService authService = ServiceLocator.authService();
     private final String instructorId = ServiceLocator.sessionContext().getUserId();
 
     private final DefaultTableModel sectionsModel = new DefaultTableModel(new Object[] {"Section ID"}, 0);
@@ -57,11 +60,15 @@ public final class InstructorDashboardFrame extends JFrame {
         JButton computeFinals = new JButton("Compute Final Grades…");
         computeFinals.addActionListener(e -> computeFinalsDialog());
 
+        JButton changePassword = new JButton("Change Password");
+        changePassword.addActionListener(e -> showChangePasswordDialog());
+
         JPanel actions = new JPanel();
         actions.add(refresh);
         actions.add(viewGrades);
         actions.add(recordScores);
         actions.add(computeFinals);
+        actions.add(changePassword);
         left.add(actions, BorderLayout.SOUTH);
 
         gradePreview.setEditable(false);
@@ -137,6 +144,45 @@ public final class InstructorDashboardFrame extends JFrame {
         Map<String, Double> parsed = parseKeyValuePairs(weights);
         var result = instructorService.computeFinalGrades(instructorId, sectionId.trim(), parsed);
         JOptionPane.showMessageDialog(this, result.getMessage().orElse("Done"));
+    }
+
+    private void showChangePasswordDialog() {
+        JPasswordField currentPasswordField = new JPasswordField(20);
+        JPasswordField newPasswordField = new JPasswordField(20);
+        JPasswordField confirmPasswordField = new JPasswordField(20);
+        
+        Object[] message = {
+            "Current Password:", currentPasswordField,
+            "New Password:", newPasswordField,
+            "Confirm New Password:", confirmPasswordField
+        };
+        
+        int option = JOptionPane.showConfirmDialog(
+            this,
+            message,
+            "Change Password",
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.PLAIN_MESSAGE
+        );
+        
+        if (option == JOptionPane.OK_OPTION) {
+            String currentPassword = new String(currentPasswordField.getPassword());
+            String newPassword = new String(newPasswordField.getPassword());
+            String confirmPassword = new String(confirmPasswordField.getPassword());
+            
+            if (newPassword.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "New password cannot be empty.");
+                return;
+            }
+            
+            if (!newPassword.equals(confirmPassword)) {
+                JOptionPane.showMessageDialog(this, "New passwords do not match.");
+                return;
+            }
+            
+            OperationResult<Void> result = authService.changePassword(currentPassword, newPassword);
+            JOptionPane.showMessageDialog(this, result.getMessage().orElse(result.isSuccess() ? "Password changed successfully." : "Failed to change password."));
+        }
     }
 
     private Map<String, Double> parseKeyValuePairs(String input) {

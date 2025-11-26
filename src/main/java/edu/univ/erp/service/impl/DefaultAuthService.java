@@ -25,11 +25,27 @@ public final class DefaultAuthService implements AuthService {
         return authRepository.findByUsername(username)
                 .filter(AuthRecord::active)
                 .map(record -> {
-                    if (!PasswordHasher.verify(password, record.passwordHash())) {
-                        return OperationResult.<Role>failure("Incorrect username or password.");
+                    // Check if account is locked (5 or more failed attempts)
+                    if (record.failedAttempts() >= 5) {
+                        return OperationResult.<Role>failure("Account temporarily locked due to too many failed login attempts. Please contact administrator.");
                     }
+                    
+                    if (!PasswordHasher.verify(password, record.passwordHash())) {
+                        // Increment failed attempts
+                        int newAttempts = record.failedAttempts() + 1;
+                        authRepository.save(record.withFailedAttempts(newAttempts));
+                        
+                        if (newAttempts >= 5) {
+                            return OperationResult.<Role>failure("Account locked after 5 failed attempts. Please contact administrator.");
+                        } else {
+                            int remaining = 5 - newAttempts;
+                            return OperationResult.<Role>failure("Incorrect username or password. " + remaining + " attempt(s) remaining.");
+                        }
+                    }
+                    
+                    // Successful login - reset failed attempts and update last login
                     sessionContext.establish(record.userId(), record.username(), record.role());
-                    authRepository.save(record.withLastLogin(LocalDateTime.now()));
+                    authRepository.save(record.withLastLogin(LocalDateTime.now()).withFailedAttempts(0));
                     return OperationResult.success(record.role());
                 })
                 .orElseGet(() -> OperationResult.failure("Incorrect username or password."));

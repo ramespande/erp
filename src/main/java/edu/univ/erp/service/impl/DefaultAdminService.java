@@ -91,6 +91,9 @@ public final class DefaultAdminService implements AdminService {
 
     @Override
     public OperationResult<Section> addSection(Section section) {
+        if (section.getCapacity() <= 0) {
+            return OperationResult.failure("Capacity must be greater than 0.");
+        }
         erpRepository.saveSection(section);
         return OperationResult.success(section, "Section saved.");
     }

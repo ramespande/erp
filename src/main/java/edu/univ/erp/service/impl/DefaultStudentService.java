@@ -100,6 +100,15 @@ public final class DefaultStudentService implements StudentService {
             return OperationResult.failure("Enrollment not found.");
         }
 
+        Optional<Section> section = erpRepository.findSection(sectionId);
+        if (section.isEmpty()) {
+            return OperationResult.failure("Section not found.");
+        }
+
+        if (section.get().getRegistrationDeadline().isBefore(java.time.LocalDate.now())) {
+            return OperationResult.failure("Registration deadline has passed. Cannot drop section.");
+        }
+
         erpRepository.deleteEnrollment(enrollment.get().getEnrollmentId());
         return OperationResult.success(null, "Section dropped.");
     }

@@ -70,6 +70,10 @@ public final class ServiceLocator {
         return ACCESS_CONTROLLER;
     }
 
+    public static ErpRepository erpRepository() {
+        return ERP_REPOSITORY;
+    }
+
     /**
      * Data is persisted immediately through JDBC, so this is a no-op that remains for
      * backwards compatibility.

@@ -76,6 +76,16 @@ public final class DefaultInstructorService implements InstructorService {
         if (section.isEmpty()) {
             return OperationResult.failure("Not your section.");
         }
+        
+        // Verify enrollment belongs to this section
+        Optional<Enrollment> enrollment = erpRepository.findEnrollmentsBySection(sectionId)
+                .stream()
+                .filter(e -> e.getEnrollmentId().equals(enrollmentId))
+                .findFirst();
+        if (enrollment.isEmpty()) {
+            return OperationResult.failure("Enrollment does not belong to this section.");
+        }
+        
         List<GradeComponent> components = componentScores.entrySet()
                 .stream()
                 .map(entry -> new GradeComponent(entry.getKey(), entry.getValue(), 0))

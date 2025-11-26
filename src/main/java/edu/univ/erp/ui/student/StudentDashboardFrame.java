@@ -1,9 +1,11 @@
 package edu.univ.erp.ui.student;
 
+import edu.univ.erp.api.common.OperationResult;
 import edu.univ.erp.api.types.CourseCatalogRow;
 import edu.univ.erp.api.types.GradeView;
 import edu.univ.erp.api.types.TimetableEntry;
 import edu.univ.erp.infra.ServiceLocator;
+import edu.univ.erp.service.AuthService;
 import edu.univ.erp.service.StudentService;
 
 import javax.swing.BorderFactory;
@@ -100,6 +102,7 @@ public final class StudentDashboardFrame extends JFrame {
     );
 
     private final StudentService studentService = ServiceLocator.studentService();
+    private final AuthService authService = ServiceLocator.authService();
     private final String studentId;
 
     private ThemePalette theme = LIGHT_THEME;
@@ -337,10 +340,18 @@ public final class StudentDashboardFrame extends JFrame {
         quickLinks.add(createPrimaryButton("Go to Catalog", tabs, 1));
         quickLinks.add(createPrimaryButton("View Timetable", tabs, 2));
         quickLinks.add(createPrimaryButton("Check Grades", tabs, 3));
+        
+        JButton changePasswordButton = new JButton("Change Password");
+        styleSecondaryAction(changePasswordButton);
+        changePasswordButton.addActionListener(e -> showChangePasswordDialog());
+        
+        JPanel settingsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 8));
+        settingsPanel.setOpaque(false);
+        settingsPanel.add(changePasswordButton);
 
         hero.add(header, BorderLayout.NORTH);
         hero.add(quickLinks, BorderLayout.CENTER);
-        hero.add(new JPanel(), BorderLayout.SOUTH);
+        hero.add(settingsPanel, BorderLayout.SOUTH);
 
         JPanel heroWrapper = new JPanel(new BorderLayout());
         heroWrapper.setOpaque(false);
@@ -981,6 +992,45 @@ public final class StudentDashboardFrame extends JFrame {
             } catch (IOException ex) {
                 JOptionPane.showMessageDialog(this, "Failed to save file: " + ex.getMessage());
             }
+        }
+    }
+
+    private void showChangePasswordDialog() {
+        JPasswordField currentPasswordField = new JPasswordField(20);
+        JPasswordField newPasswordField = new JPasswordField(20);
+        JPasswordField confirmPasswordField = new JPasswordField(20);
+        
+        Object[] message = {
+            "Current Password:", currentPasswordField,
+            "New Password:", newPasswordField,
+            "Confirm New Password:", confirmPasswordField
+        };
+        
+        int option = JOptionPane.showConfirmDialog(
+            this,
+            message,
+            "Change Password",
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.PLAIN_MESSAGE
+        );
+        
+        if (option == JOptionPane.OK_OPTION) {
+            String currentPassword = new String(currentPasswordField.getPassword());
+            String newPassword = new String(newPasswordField.getPassword());
+            String confirmPassword = new String(confirmPasswordField.getPassword());
+            
+            if (newPassword.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "New password cannot be empty.");
+                return;
+            }
+            
+            if (!newPassword.equals(confirmPassword)) {
+                JOptionPane.showMessageDialog(this, "New passwords do not match.");
+                return;
+            }
+            
+            OperationResult<Void> result = authService.changePassword(currentPassword, newPassword);
+            JOptionPane.showMessageDialog(this, result.getMessage().orElse(result.isSuccess() ? "Password changed successfully." : "Failed to change password."));
         }
     }
 
