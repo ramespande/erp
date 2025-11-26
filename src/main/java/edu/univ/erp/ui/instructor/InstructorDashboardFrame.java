@@ -6,6 +6,7 @@ import edu.univ.erp.data.erp.ErpRepository;
 import edu.univ.erp.domain.course.Course;
 import edu.univ.erp.domain.course.Section;
 import edu.univ.erp.domain.enrollment.Enrollment;
+import edu.univ.erp.domain.student.Student;
 import edu.univ.erp.infra.ServiceLocator;
 import edu.univ.erp.service.AuthService;
 import edu.univ.erp.service.InstructorService;
@@ -129,7 +130,15 @@ public final class InstructorDashboardFrame extends JFrame {
 
         tabs.addTab("Home", buildHomePanel(tabs));
         tabs.addTab("My Sections", buildSectionsPanel(tabs));
+        tabs.addTab("My Students", buildStudentsPanel(tabs));
         tabs.addTab("Grade Entry", buildGradeEntryPanel(tabs));
+        
+        // Refresh sections when tab is selected
+        tabs.addChangeListener(e -> {
+            if (tabs.getSelectedIndex() == 1) { // My Sections tab
+                loadSections();
+            }
+        });
 
         if (tabs.getTabCount() > 0) {
             tabs.setSelectedIndex(Math.min(selectedIndex, tabs.getTabCount() - 1));
@@ -213,7 +222,8 @@ public final class InstructorDashboardFrame extends JFrame {
         JPanel quickLinks = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 8));
         quickLinks.setOpaque(false);
         quickLinks.add(createPrimaryButton("My Sections", tabs, 1));
-        quickLinks.add(createPrimaryButton("Enter Grades", tabs, 2));
+        quickLinks.add(createPrimaryButton("My Students", tabs, 2));
+        quickLinks.add(createPrimaryButton("Enter Grades", tabs, 3));
 
         JButton logoutButton = new JButton("Logout");
         styleSecondaryAction(logoutButton);
@@ -284,6 +294,69 @@ public final class InstructorDashboardFrame extends JFrame {
         body.add(wrapper, BorderLayout.CENTER);
 
         return createPageLayout(tabs, "My Sections", "View all sections you are teaching.", body);
+    }
+
+    private JPanel buildStudentsPanel(JTabbedPane tabs) {
+        DefaultTableModel studentsModel = new DefaultTableModel(new Object[] {
+                "Section ID", "Course Code", "Student ID", "Student Name", "Roll No", "Enrollment ID"
+        }, 0);
+
+        JTable table = new JTable(studentsModel);
+        styleDataTable(table);
+
+        JScrollPane scrollPane = createTableScrollPane(table);
+
+        JButton refresh = new JButton("Refresh");
+        stylePrimaryAction(refresh);
+        refresh.addActionListener(e -> {
+            studentsModel.setRowCount(0);
+            var sectionsResult = instructorService.listMySections(instructorId);
+            if (!sectionsResult.isSuccess()) {
+                JOptionPane.showMessageDialog(this, sectionsResult.getMessage().orElse("Unable to load sections."));
+                return;
+            }
+            for (String sectionId : sectionsResult.getPayload().orElse(List.of())) {
+                erpRepository.findSection(sectionId).ifPresent(section -> {
+                    erpRepository.findCourse(section.getCourseId()).ifPresent(course -> {
+                        List<Enrollment> enrollments = erpRepository.findEnrollmentsBySection(sectionId);
+                        for (Enrollment enrollment : enrollments) {
+                            erpRepository.findStudent(enrollment.getStudentId()).ifPresent(student -> {
+                                studentsModel.addRow(new Object[]{
+                                        sectionId,
+                                        course.getCode(),
+                                        enrollment.getStudentId(),
+                                        "Student " + enrollment.getStudentId(),
+                                        student.getRollNo(),
+                                        enrollment.getEnrollmentId()
+                                });
+                            });
+                        }
+                    });
+                });
+            }
+        });
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        actions.setOpaque(false);
+        actions.setBorder(BorderFactory.createEmptyBorder(16, 0, 0, 0));
+        actions.add(refresh);
+
+        JPanel tableCard = createCardPanel();
+        tableCard.add(scrollPane, BorderLayout.CENTER);
+        tableCard.add(actions, BorderLayout.SOUTH);
+
+        JPanel body = new JPanel(new BorderLayout());
+        body.setOpaque(false);
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setOpaque(false);
+        wrapper.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
+        wrapper.add(tableCard, BorderLayout.CENTER);
+        body.add(wrapper, BorderLayout.CENTER);
+
+        // Load students on panel creation
+        refresh.doClick();
+
+        return createPageLayout(tabs, "My Students", "View all students enrolled in your sections.", body);
     }
 
     private JPanel buildGradeEntryPanel(JTabbedPane tabs) {
@@ -481,7 +554,9 @@ public final class InstructorDashboardFrame extends JFrame {
         menuLinks.add(Box.createVerticalStrut(8));
         menuLinks.add(createNavLink("Sections", tabs, 1));
         menuLinks.add(Box.createVerticalStrut(8));
-        menuLinks.add(createNavLink("Grades", tabs, 2));
+        menuLinks.add(createNavLink("Students", tabs, 2));
+        menuLinks.add(Box.createVerticalStrut(8));
+        menuLinks.add(createNavLink("Grades", tabs, 3));
         menuLinks.add(Box.createVerticalGlue());
         menuLinks.setVisible(false);
 

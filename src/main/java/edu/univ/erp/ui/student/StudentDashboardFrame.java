@@ -147,6 +147,17 @@ public final class StudentDashboardFrame extends JFrame {
         tabs.addTab("Catalog", buildCatalogPanel(tabs));
         tabs.addTab("Timetable", buildTimetablePanel(tabs));
         tabs.addTab("Grades", buildGradesPanel(tabs));
+        
+        // Refresh catalog when tab is selected
+        tabs.addChangeListener(e -> {
+            if (tabs.getSelectedIndex() == 1) { // Catalog tab
+                loadCatalog();
+            } else if (tabs.getSelectedIndex() == 2) { // Timetable tab
+                loadTimetable();
+            } else if (tabs.getSelectedIndex() == 3) { // Grades tab
+                loadGrades();
+            }
+        });
 
         if (tabs.getTabCount() > 0) {
             tabs.setSelectedIndex(Math.min(selectedIndex, tabs.getTabCount() - 1));
@@ -224,6 +235,10 @@ public final class StudentDashboardFrame extends JFrame {
             refreshAll();
         });
 
+        JButton refreshButton = new JButton("Refresh Catalog");
+        styleSecondaryAction(refreshButton);
+        refreshButton.addActionListener(e -> loadCatalog());
+
         JButton transcriptButton = new JButton("Download Transcript (CSV)");
         styleSecondaryAction(transcriptButton);
         transcriptButton.addActionListener(e -> downloadTranscript());
@@ -231,6 +246,7 @@ public final class StudentDashboardFrame extends JFrame {
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
         actions.setOpaque(false);
         actions.setBorder(BorderFactory.createEmptyBorder(16, 0, 0, 0));
+        actions.add(refreshButton);
         actions.add(transcriptButton);
         actions.add(dropButton);
         actions.add(registerButton);

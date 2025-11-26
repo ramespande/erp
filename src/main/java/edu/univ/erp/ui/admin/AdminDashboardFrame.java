@@ -465,7 +465,7 @@ public final class AdminDashboardFrame extends JFrame {
             }
             Course course = new Course(UUID.randomUUID().toString(), code, title, parseInt(credits, 4));
             var result = adminService.addCourse(course);
-            JOptionPane.showMessageDialog(this, result.getMessage().orElse(result.isSuccess() ? "Course added." : "Failed."));
+            JOptionPane.showMessageDialog(this, result.getMessage().orElse(result.isSuccess() ? "Course added. Students and instructors may need to refresh their views." : "Failed."));
             if (result.isSuccess()) {
                 codeField.setText("");
                 titleField.setText("");
@@ -558,7 +558,7 @@ public final class AdminDashboardFrame extends JFrame {
                         LocalDate.now().plusWeeks(2)
                 );
                 var result = adminService.addSection(section);
-                JOptionPane.showMessageDialog(this, result.getMessage().orElse(result.isSuccess() ? "Section added." : "Failed."));
+                JOptionPane.showMessageDialog(this, result.getMessage().orElse(result.isSuccess() ? "Section added. Students and instructors may need to refresh their views." : "Failed."));
                 if (result.isSuccess()) {
                     courseIdField.setText("");
                     instructorIdField.setText("");
