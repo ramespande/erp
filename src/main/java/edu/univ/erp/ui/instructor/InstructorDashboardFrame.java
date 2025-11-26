@@ -326,7 +326,7 @@ public final class InstructorDashboardFrame extends JFrame {
                                         course.getCode(),
                                         enrollment.getStudentId(),
                                         "Student " + enrollment.getStudentId(),
-                                        student.getRollNo(),
+                                        student.getRollNumber(),
                                         enrollment.getEnrollmentId()
                                 });
                             });

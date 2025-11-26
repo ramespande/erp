@@ -434,21 +434,27 @@ public final class AdminDashboardFrame extends JFrame {
         formCard.add(new JLabel("Add Course", SwingConstants.LEFT), gbc);
         gbc.gridy++;
 
+        JTextField courseIdField = new JTextField(20);
         JTextField codeField = new JTextField(20);
         JTextField titleField = new JTextField(20);
         JTextField creditsField = new JTextField(20);
 
         gbc.gridx = 0; gbc.gridy = 6;
+        formCard.add(new JLabel("Course ID:"), gbc);
+        gbc.gridx = 1;
+        formCard.add(courseIdField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 7;
         formCard.add(new JLabel("Code:"), gbc);
         gbc.gridx = 1;
         formCard.add(codeField, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 7;
+        gbc.gridx = 0; gbc.gridy = 8;
         formCard.add(new JLabel("Title:"), gbc);
         gbc.gridx = 1;
         formCard.add(titleField, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 8;
+        gbc.gridx = 0; gbc.gridy = 9;
         formCard.add(new JLabel("Credits:"), gbc);
         gbc.gridx = 1;
         formCard.add(creditsField, gbc);
@@ -456,17 +462,19 @@ public final class AdminDashboardFrame extends JFrame {
         JButton addCourseButton = new JButton("Add Course");
         stylePrimaryAction(addCourseButton);
         addCourseButton.addActionListener(e -> {
+            String courseId = courseIdField.getText().trim();
             String code = codeField.getText().trim();
             String title = titleField.getText().trim();
             String credits = creditsField.getText().trim();
-            if (code.isEmpty() || title.isEmpty() || credits.isEmpty()) {
+            if (courseId.isEmpty() || code.isEmpty() || title.isEmpty() || credits.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Please fill all fields.");
                 return;
             }
-            Course course = new Course(UUID.randomUUID().toString(), code, title, parseInt(credits, 4));
+            Course course = new Course(courseId, code, title, parseInt(credits, 4));
             var result = adminService.addCourse(course);
             JOptionPane.showMessageDialog(this, result.getMessage().orElse(result.isSuccess() ? "Course added. Students and instructors may need to refresh their views." : "Failed."));
             if (result.isSuccess()) {
+                courseIdField.setText("");
                 codeField.setText("");
                 titleField.setText("");
                 creditsField.setText("");
@@ -474,78 +482,112 @@ public final class AdminDashboardFrame extends JFrame {
             }
         });
 
-        gbc.gridx = 0; gbc.gridy = 9;
+        gbc.gridx = 0; gbc.gridy = 10;
         gbc.gridwidth = 2;
         gbc.anchor = GridBagConstraints.CENTER;
         formCard.add(addCourseButton, gbc);
 
         // Add Section Form
-        gbc.gridx = 0; gbc.gridy = 10;
+        gbc.gridx = 0; gbc.gridy = 11;
         gbc.gridwidth = 1;
         gbc.anchor = GridBagConstraints.WEST;
         formCard.add(new JLabel("Add Section", SwingConstants.LEFT), gbc);
         gbc.gridy++;
 
-        JTextField courseIdField = new JTextField(20);
+        JTextField sectionIdField = new JTextField(20);
+        JTextField sectionCourseIdField = new JTextField(20);
         JTextField instructorIdField = new JTextField(20);
         JTextField dayField = new JTextField(20);
         JTextField startTimeField = new JTextField(20);
         JTextField endTimeField = new JTextField(20);
         JTextField roomField = new JTextField(20);
         JTextField capacityField = new JTextField(20);
-
-        gbc.gridx = 0; gbc.gridy = 11;
-        formCard.add(new JLabel("Course ID:"), gbc);
-        gbc.gridx = 1;
-        formCard.add(courseIdField, gbc);
+        JTextField semesterField = new JTextField(20);
+        JTextField yearField = new JTextField(20);
+        JTextField deadlineField = new JTextField(20);
 
         gbc.gridx = 0; gbc.gridy = 12;
+        formCard.add(new JLabel("Section ID:"), gbc);
+        gbc.gridx = 1;
+        formCard.add(sectionIdField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 13;
+        formCard.add(new JLabel("Course ID:"), gbc);
+        gbc.gridx = 1;
+        formCard.add(sectionCourseIdField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 14;
         formCard.add(new JLabel("Instructor ID:"), gbc);
         gbc.gridx = 1;
         formCard.add(instructorIdField, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 13;
+        gbc.gridx = 0; gbc.gridy = 15;
         formCard.add(new JLabel("Day (MONDAY/TUESDAY/etc):"), gbc);
         gbc.gridx = 1;
         formCard.add(dayField, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 14;
+        gbc.gridx = 0; gbc.gridy = 16;
         formCard.add(new JLabel("Start Time (HH:mm):"), gbc);
         gbc.gridx = 1;
         formCard.add(startTimeField, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 15;
+        gbc.gridx = 0; gbc.gridy = 17;
         formCard.add(new JLabel("End Time (HH:mm):"), gbc);
         gbc.gridx = 1;
         formCard.add(endTimeField, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 16;
+        gbc.gridx = 0; gbc.gridy = 18;
         formCard.add(new JLabel("Room:"), gbc);
         gbc.gridx = 1;
         formCard.add(roomField, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 17;
+        gbc.gridx = 0; gbc.gridy = 19;
         formCard.add(new JLabel("Capacity:"), gbc);
         gbc.gridx = 1;
         formCard.add(capacityField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 20;
+        formCard.add(new JLabel("Semester (1 or 2):"), gbc);
+        gbc.gridx = 1;
+        formCard.add(semesterField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 21;
+        formCard.add(new JLabel("Academic Year:"), gbc);
+        gbc.gridx = 1;
+        formCard.add(yearField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 22;
+        formCard.add(new JLabel("Registration Deadline (YYYY-MM-DD):"), gbc);
+        gbc.gridx = 1;
+        formCard.add(deadlineField, gbc);
 
         JButton addSectionButton = new JButton("Add Section");
         stylePrimaryAction(addSectionButton);
         addSectionButton.addActionListener(e -> {
             try {
-                String courseId = courseIdField.getText().trim();
+                String sectionId = sectionIdField.getText().trim();
+                String courseId = sectionCourseIdField.getText().trim();
                 String instructorId = instructorIdField.getText().trim();
                 String day = dayField.getText().trim();
                 String start = startTimeField.getText().trim();
                 String end = endTimeField.getText().trim();
                 String room = roomField.getText().trim();
                 String capacity = capacityField.getText().trim();
-                if (courseId.isEmpty() || day.isEmpty() || start.isEmpty() || end.isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Please fill required fields.");
+                String semester = semesterField.getText().trim();
+                String year = yearField.getText().trim();
+                String deadline = deadlineField.getText().trim();
+                if (sectionId.isEmpty() || courseId.isEmpty() || day.isEmpty() || start.isEmpty() || end.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Please fill required fields (Section ID, Course ID, Day, Start Time, End Time).");
                     return;
                 }
+                LocalDate deadlineDate;
+                if (deadline.isEmpty()) {
+                    deadlineDate = LocalDate.now().plusWeeks(2);
+                } else {
+                    deadlineDate = LocalDate.parse(deadline);
+                }
                 Section section = new Section(
-                        UUID.randomUUID().toString(),
+                        sectionId,
                         courseId,
                         instructorId.isEmpty() ? "" : instructorId,
                         DayOfWeek.valueOf(day.toUpperCase()),
@@ -553,20 +595,24 @@ public final class AdminDashboardFrame extends JFrame {
                         LocalTime.parse(end),
                         room,
                         parseInt(capacity, 30),
-                        1,
-                        LocalDate.now().getYear(),
-                        LocalDate.now().plusWeeks(2)
+                        semester.isEmpty() ? 1 : parseInt(semester, 1),
+                        year.isEmpty() ? LocalDate.now().getYear() : parseInt(year, LocalDate.now().getYear()),
+                        deadlineDate
                 );
                 var result = adminService.addSection(section);
                 JOptionPane.showMessageDialog(this, result.getMessage().orElse(result.isSuccess() ? "Section added. Students and instructors may need to refresh their views." : "Failed."));
                 if (result.isSuccess()) {
-                    courseIdField.setText("");
+                    sectionIdField.setText("");
+                    sectionCourseIdField.setText("");
                     instructorIdField.setText("");
                     dayField.setText("");
                     startTimeField.setText("");
                     endTimeField.setText("");
                     roomField.setText("");
                     capacityField.setText("");
+                    semesterField.setText("");
+                    yearField.setText("");
+                    deadlineField.setText("");
                     loadCoursesAndSections();
                 }
             } catch (Exception ex) {
@@ -574,7 +620,7 @@ public final class AdminDashboardFrame extends JFrame {
             }
         });
 
-        gbc.gridx = 0; gbc.gridy = 18;
+        gbc.gridx = 0; gbc.gridy = 23;
         gbc.gridwidth = 2;
         gbc.anchor = GridBagConstraints.CENTER;
         formCard.add(addSectionButton, gbc);

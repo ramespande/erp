@@ -1,6 +1,6 @@
 # University ERP (Java + Swing)
 
-This repository contains a standalone desktop ERP prototype for universities. It demonstrates a complete stack built from scratch according to the project brief:
+This ./buirepository contains a standalone desktop ERP prototype for universities. It demonstrates a complete stack built from scratch according to the project brief:
 
 - Role-based dashboards for students, instructors, and admins.
 - Dual-database mindset (Auth vs ERP data) with clear separation in the code structure.
