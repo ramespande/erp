@@ -9,6 +9,7 @@ import edu.univ.erp.domain.user.Role;
 import edu.univ.erp.service.AuthService;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 public final class DefaultAuthService implements AuthService {
 
@@ -25,19 +26,31 @@ public final class DefaultAuthService implements AuthService {
         return authRepository.findByUsername(username)
                 .filter(AuthRecord::active)
                 .map(record -> {
-                    // Check if account is locked (5 or more failed attempts)
-                    if (record.failedAttempts() >= 5) {
-                        return OperationResult.<Role>failure("Account temporarily locked due to too many failed login attempts. Please contact administrator.");
+                    LocalDateTime now = LocalDateTime.now();
+                    
+                    // Check if account is locked out
+                    if (record.lockoutUntil() != null && record.lockoutUntil().isAfter(now)) {
+                        long minutesRemaining = ChronoUnit.MINUTES.between(now, record.lockoutUntil());
+                        return OperationResult.<Role>failure("Account locked. Please try again in " + minutesRemaining + " minute(s).");
+                    }
+                    
+                    // If lockout period has expired, reset failed attempts
+                    if (record.lockoutUntil() != null && record.lockoutUntil().isBefore(now)) {
+                        record = record.withFailedAttempts(0).withLockoutUntil(null);
+                        authRepository.save(record);
                     }
                     
                     if (!PasswordHasher.verify(password, record.passwordHash())) {
                         // Increment failed attempts
                         int newAttempts = record.failedAttempts() + 1;
-                        authRepository.save(record.withFailedAttempts(newAttempts));
                         
                         if (newAttempts >= 5) {
-                            return OperationResult.<Role>failure("Account locked after 5 failed attempts. Please contact administrator.");
+                            // Lock account for 1 minute
+                            LocalDateTime lockoutUntil = now.plusMinutes(1);
+                            authRepository.save(record.withFailedAttempts(newAttempts).withLockoutUntil(lockoutUntil));
+                            return OperationResult.<Role>failure("Account locked for 1 minute after 5 failed attempts. Please try again later.");
                         } else {
+                            authRepository.save(record.withFailedAttempts(newAttempts));
                             int remaining = 5 - newAttempts;
                             return OperationResult.<Role>failure("Incorrect username or password. " + remaining + " attempt(s) remaining.");
                         }
@@ -45,7 +58,7 @@ public final class DefaultAuthService implements AuthService {
                     
                     // Successful login - reset failed attempts and update last login
                     sessionContext.establish(record.userId(), record.username(), record.role());
-                    authRepository.save(record.withLastLogin(LocalDateTime.now()).withFailedAttempts(0));
+                    authRepository.save(record.withLastLogin(now).withFailedAttempts(0).withLockoutUntil(null));
                     return OperationResult.success(record.role());
                 })
                 .orElseGet(() -> OperationResult.failure("Incorrect username or password."));

@@ -117,7 +117,8 @@ public final class InMemoryDataStore implements Serializable {
                 PasswordHasher.hash("admin123"),
                 true,
                 LocalDateTime.now().minusDays(1),
-                0));
+                0,
+                null));
         authRecords.put(instId, new AuthRecord(
                 instId,
                 "inst1",
@@ -125,7 +126,8 @@ public final class InMemoryDataStore implements Serializable {
                 PasswordHasher.hash("inst123"),
                 true,
                 LocalDateTime.now().minusDays(2),
-                0));
+                0,
+                null));
         authRecords.put(stu1Id, new AuthRecord(
                 stu1Id,
                 "stu1",
@@ -133,7 +135,8 @@ public final class InMemoryDataStore implements Serializable {
                 PasswordHasher.hash("stu123"),
                 true,
                 LocalDateTime.now().minusDays(5),
-                0));
+                0,
+                null));
         authRecords.put(stu2Id, new AuthRecord(
                 stu2Id,
                 "stu2",
@@ -141,7 +144,8 @@ public final class InMemoryDataStore implements Serializable {
                 PasswordHasher.hash("stu123"),
                 true,
                 LocalDateTime.now().minusDays(6),
-                0));
+                0,
+                null));
 
         instructors.put(instId, new Instructor(instId, "Computer Science", "Assistant Professor"));
 

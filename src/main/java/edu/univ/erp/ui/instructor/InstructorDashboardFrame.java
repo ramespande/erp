@@ -2,48 +2,259 @@ package edu.univ.erp.ui.instructor;
 
 import edu.univ.erp.api.common.OperationResult;
 import edu.univ.erp.api.types.GradeView;
+import edu.univ.erp.data.erp.ErpRepository;
+import edu.univ.erp.domain.course.Course;
+import edu.univ.erp.domain.course.Section;
+import edu.univ.erp.domain.enrollment.Enrollment;
 import edu.univ.erp.infra.ServiceLocator;
 import edu.univ.erp.service.AuthService;
 import edu.univ.erp.service.InstructorService;
+import edu.univ.erp.ui.auth.LoginFrame;
 
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
 import javax.swing.JTable;
-import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public final class InstructorDashboardFrame extends JFrame {
 
+    private static final Color BRAND_PRIMARY = new Color(0, 158, 149);
+    private static final ThemePalette LIGHT_THEME = new ThemePalette(
+            new Color(247, 249, 250),
+            new Color(255, 255, 255),
+            new Color(219, 226, 232),
+            new Color(0, 158, 149, 30),
+            new Color(255, 255, 255, 220),
+            new Color(30, 50, 70),
+            new Color(20, 40, 60),
+            new Color(90, 100, 110),
+            new Color(60, 70, 80),
+            new Color(239, 244, 247),
+            new Color(40, 55, 70),
+            new Color(227, 245, 242),
+            Color.DARK_GRAY,
+            new Color(245, 248, 249),
+            new Color(90, 100, 110),
+            new Color(110, 120, 130),
+            new Color(229, 236, 241),
+            new Color(255, 255, 255, 200),
+            new Color(220, 225, 230)
+    );
+    private static final ThemePalette DARK_THEME = new ThemePalette(
+            new Color(24, 29, 36),
+            new Color(39, 47, 58),
+            new Color(55, 65, 78),
+            new Color(50, 58, 70),
+            new Color(57, 66, 78),
+            new Color(230, 236, 243),
+            new Color(230, 236, 243),
+            new Color(173, 183, 196),
+            new Color(150, 160, 175),
+            new Color(52, 61, 74),
+            new Color(230, 236, 243),
+            new Color(59, 85, 98),
+            new Color(230, 236, 243),
+            new Color(45, 54, 66),
+            new Color(173, 183, 196),
+            new Color(150, 160, 175),
+            new Color(60, 70, 85),
+            new Color(39, 47, 58),
+            new Color(70, 80, 95)
+    );
+
     private final InstructorService instructorService = ServiceLocator.instructorService();
     private final AuthService authService = ServiceLocator.authService();
+    private final ErpRepository erpRepository = ServiceLocator.erpRepository();
     private final String instructorId = ServiceLocator.sessionContext().getUserId();
 
-    private final DefaultTableModel sectionsModel = new DefaultTableModel(new Object[] {"Section ID"}, 0);
-    private final JTextArea gradePreview = new JTextArea();
-    private final JLabel statusLabel = new JLabel("", SwingConstants.CENTER);
+    private ThemePalette theme = LIGHT_THEME;
+    private boolean darkMode;
+
+    private final DefaultTableModel sectionsModel = new DefaultTableModel(new Object[] {
+            "Section ID", "Course Code", "Day", "Time", "Room", "Capacity"
+    }, 0);
+    private final DefaultTableModel enrollmentsModel = new DefaultTableModel(new Object[] {
+            "Enrollment ID", "Student ID", "Section ID"
+    }, 0);
+    private final JTabbedPane tabs = new JTabbedPane();
+    private final List<JToggleButton> themeToggles = new ArrayList<>();
+
+    private final JLabel maintenanceLabel = new JLabel("", SwingConstants.CENTER);
 
     public InstructorDashboardFrame() {
         super("Instructor Dashboard");
-        setSize(800, 600);
+        setSize(960, 640);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        JTable table = new JTable(sectionsModel);
-        JPanel left = new JPanel(new BorderLayout());
-        left.add(new JScrollPane(table), BorderLayout.CENTER);
+        maintenanceLabel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
 
-        JButton refresh = new JButton("Refresh Sections");
+        rebuildTabs();
+
+        add(tabs, BorderLayout.CENTER);
+        add(maintenanceLabel, BorderLayout.SOUTH);
+
+        refreshAll();
+    }
+
+    private void rebuildTabs() {
+        int selectedIndex = tabs.getTabCount() > 0 ? tabs.getSelectedIndex() : 0;
+        tabs.removeAll();
+        themeToggles.clear();
+
+        tabs.addTab("Home", buildHomePanel(tabs));
+        tabs.addTab("My Sections", buildSectionsPanel(tabs));
+        tabs.addTab("Grade Entry", buildGradeEntryPanel(tabs));
+
+        if (tabs.getTabCount() > 0) {
+            tabs.setSelectedIndex(Math.min(selectedIndex, tabs.getTabCount() - 1));
+        }
+
+        tabs.setOpaque(true);
+        tabs.setBackground(theme.background());
+        tabs.setForeground(theme.textSecondary());
+
+        getContentPane().setBackground(theme.background());
+        maintenanceLabel.setBackground(theme.background());
+        maintenanceLabel.setForeground(theme.textSecondary());
+
+        updateThemeToggleStates();
+        revalidate();
+        repaint();
+    }
+
+    private void setDarkMode(boolean enabled) {
+        if (darkMode == enabled) {
+            updateThemeToggleStates();
+            return;
+        }
+        darkMode = enabled;
+        theme = enabled ? DARK_THEME : LIGHT_THEME;
+        rebuildTabs();
+        refreshAll();
+    }
+
+    private void updateThemeToggleStates() {
+        for (JToggleButton toggle : themeToggles) {
+            toggle.setSelected(darkMode);
+            styleThemeToggle(toggle);
+        }
+    }
+
+    private void styleThemeToggle(JToggleButton toggle) {
+        toggle.setFocusPainted(false);
+        toggle.setBackground(darkMode ? BRAND_PRIMARY.darker() : theme.cardBackground());
+        toggle.setForeground(theme.textPrimary());
+        toggle.setBorder(BorderFactory.createLineBorder(theme.cardBorder()));
+        toggle.setOpaque(true);
+        toggle.setText(darkMode ? "🌙" : "☀");
+    }
+
+    private JPanel buildHomePanel(JTabbedPane tabs) {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
+        panel.setBackground(theme.background());
+
+        JPanel nav = createNavigationColumn(tabs);
+        JPanel hero = new JPanel();
+        hero.setOpaque(false);
+        hero.setLayout(new BorderLayout());
+        hero.setBorder(BorderFactory.createEmptyBorder(0, 32, 32, 32));
+
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(false);
+
+        JLabel welcome = new JLabel("Welcome, " + ServiceLocator.sessionContext().getUsername());
+        welcome.setForeground(theme.textPrimary());
+        welcome.setFont(welcome.getFont().deriveFont(Font.BOLD, 28f));
+
+        JLabel subtitle = new JLabel("Manage your sections and enter grades.");
+        subtitle.setForeground(theme.subtitleText());
+        subtitle.setFont(subtitle.getFont().deriveFont(Font.PLAIN, 16f));
+
+        JPanel welcomeBlock = new JPanel();
+        welcomeBlock.setOpaque(false);
+        welcomeBlock.setLayout(new BoxLayout(welcomeBlock, BoxLayout.Y_AXIS));
+        welcomeBlock.add(welcome);
+        welcomeBlock.add(Box.createVerticalStrut(6));
+        welcomeBlock.add(subtitle);
+
+        JLabel logo = new JLabel(loadLogoIcon(140, 90));
+        logo.setHorizontalAlignment(SwingConstants.RIGHT);
+
+        header.add(welcomeBlock, BorderLayout.WEST);
+        header.add(logo, BorderLayout.EAST);
+
+        JPanel quickLinks = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 8));
+        quickLinks.setOpaque(false);
+        quickLinks.add(createPrimaryButton("My Sections", tabs, 1));
+        quickLinks.add(createPrimaryButton("Enter Grades", tabs, 2));
+
+        JButton logoutButton = new JButton("Logout");
+        styleSecondaryAction(logoutButton);
+        logoutButton.addActionListener(e -> logout());
+
+        JButton changePasswordButton = new JButton("Change Password");
+        styleSecondaryAction(changePasswordButton);
+        changePasswordButton.addActionListener(e -> showChangePasswordDialog());
+
+        JPanel settingsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 8));
+        settingsPanel.setOpaque(false);
+        settingsPanel.add(changePasswordButton);
+        settingsPanel.add(logoutButton);
+
+        hero.add(header, BorderLayout.NORTH);
+        hero.add(quickLinks, BorderLayout.CENTER);
+        hero.add(settingsPanel, BorderLayout.SOUTH);
+
+        JPanel heroWrapper = new JPanel(new BorderLayout());
+        heroWrapper.setOpaque(false);
+        heroWrapper.setBorder(BorderFactory.createEmptyBorder(0, 24, 0, 0));
+        heroWrapper.add(createThemeBar(), BorderLayout.NORTH);
+        heroWrapper.add(hero, BorderLayout.CENTER);
+
+        panel.add(nav, BorderLayout.WEST);
+        panel.add(heroWrapper, BorderLayout.CENTER);
+        return panel;
+    }
+
+    private JPanel buildSectionsPanel(JTabbedPane tabs) {
+        JTable table = new JTable(sectionsModel);
+        styleDataTable(table);
+
+        JScrollPane scrollPane = createTableScrollPane(table);
+
+        JButton refresh = new JButton("Refresh");
+        stylePrimaryAction(refresh);
         refresh.addActionListener(e -> loadSections());
+
         JButton viewGrades = new JButton("View Grades");
+        styleSecondaryAction(viewGrades);
         viewGrades.addActionListener(e -> {
             int row = table.getSelectedRow();
             if (row < 0) {
@@ -51,51 +262,376 @@ public final class InstructorDashboardFrame extends JFrame {
                 return;
             }
             String sectionId = (String) sectionsModel.getValueAt(row, 0);
-            showGrades(sectionId);
+            showGradesForSection(sectionId);
         });
 
-        JButton recordScores = new JButton("Record Scores…");
-        recordScores.addActionListener(e -> recordScoresDialog());
-
-        JButton computeFinals = new JButton("Compute Final Grades…");
-        computeFinals.addActionListener(e -> computeFinalsDialog());
-
-        JButton changePassword = new JButton("Change Password");
-        changePassword.addActionListener(e -> showChangePasswordDialog());
-
-        JPanel actions = new JPanel();
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        actions.setOpaque(false);
+        actions.setBorder(BorderFactory.createEmptyBorder(16, 0, 0, 0));
         actions.add(refresh);
         actions.add(viewGrades);
-        actions.add(recordScores);
-        actions.add(computeFinals);
-        actions.add(changePassword);
-        left.add(actions, BorderLayout.SOUTH);
 
-        gradePreview.setEditable(false);
-        gradePreview.setLineWrap(true);
-        gradePreview.setWrapStyleWord(true);
+        JPanel tableCard = createCardPanel();
+        tableCard.add(scrollPane, BorderLayout.CENTER);
+        tableCard.add(actions, BorderLayout.SOUTH);
 
-        add(left, BorderLayout.WEST);
-        add(new JScrollPane(gradePreview), BorderLayout.CENTER);
-        add(statusLabel, BorderLayout.SOUTH);
+        JPanel body = new JPanel(new BorderLayout());
+        body.setOpaque(false);
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setOpaque(false);
+        wrapper.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
+        wrapper.add(tableCard, BorderLayout.CENTER);
+        body.add(wrapper, BorderLayout.CENTER);
 
-        loadSections();
+        return createPageLayout(tabs, "My Sections", "View all sections you are teaching.", body);
+    }
+
+    private JPanel buildGradeEntryPanel(JTabbedPane tabs) {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
+        panel.setBackground(theme.background());
+
+        JPanel nav = createNavigationColumn(tabs);
+        JPanel content = new JPanel(new BorderLayout());
+        content.setOpaque(false);
+        content.setBorder(BorderFactory.createEmptyBorder(0, 24, 0, 0));
+
+        JPanel header = new JPanel();
+        header.setOpaque(false);
+        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
+
+        JLabel titleLabel = new JLabel("Grade Entry");
+        titleLabel.setForeground(theme.textPrimary());
+        titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 26f));
+
+        JLabel subtitleLabel = new JLabel("Enter scores and compute final grades for your sections.");
+        subtitleLabel.setForeground(theme.subtitleText());
+        subtitleLabel.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 0));
+
+        header.add(titleLabel);
+        header.add(subtitleLabel);
+
+        JPanel formCard = createCardPanel();
+        formCard.setLayout(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new java.awt.Insets(10, 10, 10, 10);
+        gbc.anchor = GridBagConstraints.WEST;
+
+        // Record Scores Form
+        gbc.gridx = 0; gbc.gridy = 0;
+        formCard.add(new JLabel("Record Scores", SwingConstants.LEFT), gbc);
+        gbc.gridy++;
+
+        JTextField sectionIdField = new JTextField(20);
+        JTextField enrollmentIdField = new JTextField(20);
+        JTextField scoresField = new JTextField(30);
+        scoresField.setToolTipText("Format: Quiz=20,Mid=25,End=30");
+
+        gbc.gridx = 0; gbc.gridy = 1;
+        formCard.add(new JLabel("Section ID:"), gbc);
+        gbc.gridx = 1;
+        formCard.add(sectionIdField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 2;
+        formCard.add(new JLabel("Enrollment ID:"), gbc);
+        gbc.gridx = 1;
+        formCard.add(enrollmentIdField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 3;
+        formCard.add(new JLabel("Component Scores:"), gbc);
+        gbc.gridx = 1;
+        formCard.add(scoresField, gbc);
+
+        JButton recordButton = new JButton("Record Scores");
+        stylePrimaryAction(recordButton);
+        recordButton.addActionListener(e -> {
+            String sectionId = sectionIdField.getText().trim();
+            String enrollmentId = enrollmentIdField.getText().trim();
+            String scores = scoresField.getText().trim();
+            if (sectionId.isEmpty() || enrollmentId.isEmpty() || scores.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Please fill all fields.");
+                return;
+            }
+            Map<String, Double> parsed = parseKeyValuePairs(scores);
+            var result = instructorService.recordScores(instructorId, sectionId, enrollmentId, parsed);
+            JOptionPane.showMessageDialog(this, result.getMessage().orElse("Done"));
+            if (result.isSuccess()) {
+                sectionIdField.setText("");
+                enrollmentIdField.setText("");
+                scoresField.setText("");
+            }
+        });
+
+        gbc.gridx = 0; gbc.gridy = 4;
+        gbc.gridwidth = 2;
+        gbc.anchor = GridBagConstraints.CENTER;
+        formCard.add(recordButton, gbc);
+
+        // Compute Final Grades Form
+        gbc.gridx = 0; gbc.gridy = 5;
+        gbc.gridwidth = 1;
+        gbc.anchor = GridBagConstraints.WEST;
+        formCard.add(new JLabel("Compute Final Grades", SwingConstants.LEFT), gbc);
+        gbc.gridy++;
+
+        JTextField sectionIdField2 = new JTextField(20);
+        JTextField weightsField = new JTextField(30);
+        weightsField.setToolTipText("Format: Quiz=0.2,Mid=0.3,End=0.5");
+
+        gbc.gridx = 0; gbc.gridy = 6;
+        formCard.add(new JLabel("Section ID:"), gbc);
+        gbc.gridx = 1;
+        formCard.add(sectionIdField2, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 7;
+        formCard.add(new JLabel("Weights:"), gbc);
+        gbc.gridx = 1;
+        formCard.add(weightsField, gbc);
+
+        JButton computeButton = new JButton("Compute Final Grades");
+        stylePrimaryAction(computeButton);
+        computeButton.addActionListener(e -> {
+            String sectionId = sectionIdField2.getText().trim();
+            String weights = weightsField.getText().trim();
+            if (sectionId.isEmpty() || weights.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Please fill all fields.");
+                return;
+            }
+            Map<String, Double> parsed = parseKeyValuePairs(weights);
+            var result = instructorService.computeFinalGrades(instructorId, sectionId, parsed);
+            JOptionPane.showMessageDialog(this, result.getMessage().orElse("Done"));
+            if (result.isSuccess()) {
+                sectionIdField2.setText("");
+                weightsField.setText("");
+            }
+        });
+
+        gbc.gridx = 0; gbc.gridy = 8;
+        gbc.gridwidth = 2;
+        gbc.anchor = GridBagConstraints.CENTER;
+        formCard.add(computeButton, gbc);
+
+        content.add(createThemeBar(), BorderLayout.NORTH);
+        content.add(header, BorderLayout.NORTH);
+        content.add(formCard, BorderLayout.CENTER);
+
+        panel.add(nav, BorderLayout.WEST);
+        panel.add(content, BorderLayout.CENTER);
+        return panel;
+    }
+
+    private JPanel createPageLayout(JTabbedPane tabs, String title, String subtitle, JComponent body) {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
+        panel.setBackground(theme.background());
+
+        JPanel nav = createNavigationColumn(tabs);
+
+        JPanel content = new JPanel(new BorderLayout());
+        content.setOpaque(false);
+        content.setBorder(BorderFactory.createEmptyBorder(0, 24, 0, 0));
+
+        JPanel header = new JPanel();
+        header.setOpaque(false);
+        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
+
+        JLabel titleLabel = new JLabel(title);
+        titleLabel.setForeground(theme.textPrimary());
+        titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 26f));
+
+        JLabel subtitleLabel = new JLabel(subtitle);
+        subtitleLabel.setForeground(theme.subtitleText());
+        subtitleLabel.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 0));
+
+        header.add(titleLabel);
+        header.add(subtitleLabel);
+
+        JPanel headerWrapper = new JPanel(new BorderLayout());
+        headerWrapper.setOpaque(false);
+        headerWrapper.add(createThemeBar(), BorderLayout.NORTH);
+        headerWrapper.add(header, BorderLayout.CENTER);
+
+        content.add(headerWrapper, BorderLayout.NORTH);
+        content.add(body, BorderLayout.CENTER);
+
+        panel.add(nav, BorderLayout.WEST);
+        panel.add(content, BorderLayout.CENTER);
+        return panel;
+    }
+
+    private JPanel createNavigationColumn(JTabbedPane tabs) {
+        JPanel nav = new JPanel();
+        nav.setBackground(theme.navBackground());
+        nav.setPreferredSize(new Dimension(80, 0));
+        nav.setLayout(new BoxLayout(nav, BoxLayout.Y_AXIS));
+        nav.setBorder(BorderFactory.createEmptyBorder(16, 12, 16, 12));
+
+        JButton hamburger = new JButton("\u2630");
+        hamburger.setAlignmentX(0.5f);
+        hamburger.setFocusPainted(false);
+        hamburger.setBackground(BRAND_PRIMARY);
+        hamburger.setForeground(Color.WHITE);
+        hamburger.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+
+        JPanel menuLinks = new JPanel();
+        menuLinks.setOpaque(false);
+        menuLinks.setLayout(new BoxLayout(menuLinks, BoxLayout.Y_AXIS));
+        menuLinks.add(Box.createVerticalStrut(16));
+        menuLinks.add(createNavLink("Home", tabs, 0));
+        menuLinks.add(Box.createVerticalStrut(8));
+        menuLinks.add(createNavLink("Sections", tabs, 1));
+        menuLinks.add(Box.createVerticalStrut(8));
+        menuLinks.add(createNavLink("Grades", tabs, 2));
+        menuLinks.add(Box.createVerticalGlue());
+        menuLinks.setVisible(false);
+
+        hamburger.addActionListener(e -> {
+            boolean show = !menuLinks.isVisible();
+            menuLinks.setVisible(show);
+            hamburger.setText(show ? "\u2715" : "\u2630");
+            nav.revalidate();
+            nav.repaint();
+        });
+
+        nav.add(hamburger);
+        nav.add(menuLinks);
+        return nav;
+    }
+
+    private JPanel createThemeBar() {
+        JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 4));
+        bar.setOpaque(true);
+        bar.setBackground(theme.chromeBackground());
+        bar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(theme.chromeBorder()),
+                BorderFactory.createEmptyBorder(4, 12, 4, 12)
+        ));
+
+        JLabel sun = new JLabel("☀");
+        sun.setForeground(theme.textSecondary());
+
+        JToggleButton toggle = new JToggleButton();
+        toggle.setPreferredSize(new Dimension(56, 24));
+        toggle.addActionListener(e -> setDarkMode(toggle.isSelected()));
+        themeToggles.add(toggle);
+        toggle.setSelected(darkMode);
+        styleThemeToggle(toggle);
+
+        JLabel moon = new JLabel("🌙");
+        moon.setForeground(theme.textSecondary());
+
+        bar.add(sun);
+        bar.add(toggle);
+        bar.add(moon);
+        return bar;
+    }
+
+    private JPanel createCardPanel() {
+        JPanel card = new JPanel(new BorderLayout());
+        card.setOpaque(true);
+        card.setBackground(theme.cardBackground());
+        card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(theme.cardBorder()),
+                BorderFactory.createEmptyBorder(16, 16, 16, 16)
+        ));
+        return card;
+    }
+
+    private JScrollPane createTableScrollPane(JTable table) {
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.getViewport().setBackground(theme.cardBackground());
+        return scrollPane;
+    }
+
+    private void styleDataTable(JTable table) {
+        table.setFillsViewportHeight(true);
+        table.setRowHeight(28);
+        table.setShowHorizontalLines(false);
+        table.setShowVerticalLines(false);
+        table.setIntercellSpacing(new Dimension(0, 1));
+        table.setAutoCreateRowSorter(true);
+        table.setSelectionBackground(theme.tableSelectionBackground());
+        table.setSelectionForeground(theme.tableSelectionForeground());
+        table.setBackground(theme.cardBackground());
+        table.setForeground(theme.textPrimary());
+        var header = table.getTableHeader();
+        header.setReorderingAllowed(false);
+        header.setBackground(theme.tableHeaderBackground());
+        header.setForeground(theme.tableHeaderText());
+        header.setOpaque(true);
+        header.setFont(header.getFont().deriveFont(Font.BOLD, 13f));
+    }
+
+    private void stylePrimaryAction(JButton button) {
+        button.setFocusPainted(false);
+        button.setBackground(BRAND_PRIMARY);
+        button.setForeground(Color.WHITE);
+        button.setBorder(BorderFactory.createEmptyBorder(10, 18, 10, 18));
+    }
+
+    private void styleSecondaryAction(JButton button) {
+        button.setFocusPainted(false);
+        button.setBackground(theme.cardBackground());
+        button.setForeground(theme.textPrimary());
+        button.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(theme.cardBorder()),
+                BorderFactory.createEmptyBorder(10, 18, 10, 18)
+        ));
+    }
+
+    private JButton createNavLink(String text, JTabbedPane tabs, int tabIndex) {
+        JButton button = new JButton(text);
+        button.setAlignmentX(0f);
+        button.setFocusPainted(false);
+        button.setBackground(theme.navButtonBackground());
+        button.setForeground(theme.navButtonForeground());
+        button.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+        button.setOpaque(true);
+        button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        button.addActionListener(e -> tabs.setSelectedIndex(tabIndex));
+        return button;
+    }
+
+    private JButton createPrimaryButton(String text, JTabbedPane tabs, int tabIndex) {
+        JButton button = new JButton(text);
+        stylePrimaryAction(button);
+        button.addActionListener(e -> tabs.setSelectedIndex(tabIndex));
+        return button;
+    }
+
+    private ImageIcon loadLogoIcon(int width, int height) {
+        var url = InstructorDashboardFrame.class.getResource("/images/iiitdlogo.png");
+        if (url == null) {
+            return null;
+        }
+        return new ImageIcon(new ImageIcon(url).getImage().getScaledInstance(width, height, java.awt.Image.SCALE_SMOOTH));
     }
 
     private void loadSections() {
         sectionsModel.setRowCount(0);
         var result = instructorService.listMySections(instructorId);
         if (!result.isSuccess()) {
-            statusLabel.setText(result.getMessage().orElse("Unable to load sections."));
+            JOptionPane.showMessageDialog(this, result.getMessage().orElse("Unable to load sections."));
             return;
         }
-        for (String id : result.getPayload().orElse(List.of())) {
-            sectionsModel.addRow(new Object[] {id});
+        for (String sectionId : result.getPayload().orElse(List.of())) {
+            erpRepository.findSection(sectionId).ifPresent(section -> {
+                erpRepository.findCourse(section.getCourseId()).ifPresent(course -> {
+                    sectionsModel.addRow(new Object[]{
+                            section.getSectionId(),
+                            course.getCode(),
+                            section.getDayOfWeek().name(),
+                            section.getStartTime() + "-" + section.getEndTime(),
+                            section.getRoom(),
+                            section.getCapacity()
+                    });
+                });
+            });
         }
-        statusLabel.setText("Sections loaded: " + sectionsModel.getRowCount());
     }
 
-    private void showGrades(String sectionId) {
+    private void showGradesForSection(String sectionId) {
         var result = instructorService.viewGradesForSection(instructorId, sectionId);
         if (!result.isSuccess()) {
             JOptionPane.showMessageDialog(this, result.getMessage().orElse("Unable to fetch grades."));
@@ -103,12 +639,12 @@ public final class InstructorDashboardFrame extends JFrame {
         }
         GradeView view = result.getPayload().orElse(null);
         if (view == null) {
-            gradePreview.setText("No data.");
+            JOptionPane.showMessageDialog(this, "No data.");
             return;
         }
         StringBuilder builder = new StringBuilder();
         builder.append("Course: ").append(view.courseCode())
-                .append(" | Section: ").append(view.sectionId()).append(System.lineSeparator());
+                .append(" | Section: ").append(view.sectionId()).append("\n\n");
         for (GradeView.ComponentScore component : view.components()) {
             builder.append(" - ")
                     .append(component.name())
@@ -117,46 +653,23 @@ public final class InstructorDashboardFrame extends JFrame {
                     .append(" (w=")
                     .append(component.weight())
                     .append(")")
-                    .append(System.lineSeparator());
+                    .append("\n");
         }
-        builder.append("Final Grade: ").append(view.finalGrade() == null ? "-" : view.finalGrade());
-        gradePreview.setText(builder.toString());
-    }
-
-    private void recordScoresDialog() {
-        String sectionId = JOptionPane.showInputDialog(this, "Section ID");
-        String enrollmentId = JOptionPane.showInputDialog(this, "Enrollment ID");
-        String components = JOptionPane.showInputDialog(this, "Component scores (format Quiz=20,Mid=25)");
-        if (sectionId == null || enrollmentId == null || components == null) {
-            return;
-        }
-        Map<String, Double> parsed = parseKeyValuePairs(components);
-        var result = instructorService.recordScores(instructorId, sectionId.trim(), enrollmentId.trim(), parsed);
-        JOptionPane.showMessageDialog(this, result.getMessage().orElse("Done"));
-    }
-
-    private void computeFinalsDialog() {
-        String sectionId = JOptionPane.showInputDialog(this, "Section ID");
-        String weights = JOptionPane.showInputDialog(this, "Weights (Quiz=0.2,Mid=0.3,End=0.5)");
-        if (sectionId == null || weights == null) {
-            return;
-        }
-        Map<String, Double> parsed = parseKeyValuePairs(weights);
-        var result = instructorService.computeFinalGrades(instructorId, sectionId.trim(), parsed);
-        JOptionPane.showMessageDialog(this, result.getMessage().orElse("Done"));
+        builder.append("\nFinal Grade: ").append(view.finalGrade() == null ? "-" : view.finalGrade());
+        JOptionPane.showMessageDialog(this, builder.toString(), "Grades", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void showChangePasswordDialog() {
         JPasswordField currentPasswordField = new JPasswordField(20);
         JPasswordField newPasswordField = new JPasswordField(20);
         JPasswordField confirmPasswordField = new JPasswordField(20);
-        
+
         Object[] message = {
             "Current Password:", currentPasswordField,
             "New Password:", newPasswordField,
             "Confirm New Password:", confirmPasswordField
         };
-        
+
         int option = JOptionPane.showConfirmDialog(
             this,
             message,
@@ -164,24 +677,38 @@ public final class InstructorDashboardFrame extends JFrame {
             JOptionPane.OK_CANCEL_OPTION,
             JOptionPane.PLAIN_MESSAGE
         );
-        
+
         if (option == JOptionPane.OK_OPTION) {
             String currentPassword = new String(currentPasswordField.getPassword());
             String newPassword = new String(newPasswordField.getPassword());
             String confirmPassword = new String(confirmPasswordField.getPassword());
-            
+
             if (newPassword.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "New password cannot be empty.");
                 return;
             }
-            
+
             if (!newPassword.equals(confirmPassword)) {
                 JOptionPane.showMessageDialog(this, "New passwords do not match.");
                 return;
             }
-            
+
             OperationResult<Void> result = authService.changePassword(currentPassword, newPassword);
             JOptionPane.showMessageDialog(this, result.getMessage().orElse(result.isSuccess() ? "Password changed successfully." : "Failed to change password."));
+        }
+    }
+
+    private void logout() {
+        int confirm = JOptionPane.showConfirmDialog(
+            this,
+            "Are you sure you want to logout?",
+            "Logout",
+            JOptionPane.YES_NO_OPTION
+        );
+        if (confirm == JOptionPane.YES_OPTION) {
+            authService.logout();
+            dispose();
+            new LoginFrame().setVisible(true);
         }
     }
 
@@ -202,5 +729,33 @@ public final class InstructorDashboardFrame extends JFrame {
         }
         return map;
     }
-}
 
+    private void refreshAll() {
+        loadSections();
+        var maintenance = ServiceLocator.maintenanceService().isMaintenanceOn();
+        maintenanceLabel.setText(maintenance ? "Maintenance Mode ON — read-only operations." : "");
+    }
+
+    private record ThemePalette(
+            Color background,
+            Color cardBackground,
+            Color cardBorder,
+            Color navBackground,
+            Color navButtonBackground,
+            Color navButtonForeground,
+            Color textPrimary,
+            Color textSecondary,
+            Color subtitleText,
+            Color tableHeaderBackground,
+            Color tableHeaderText,
+            Color tableSelectionBackground,
+            Color tableSelectionForeground,
+            Color infoBackground,
+            Color infoText,
+            Color placeholderText,
+            Color gridLine,
+            Color chromeBackground,
+            Color chromeBorder
+    ) {
+    }
+}

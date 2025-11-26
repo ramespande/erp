@@ -53,7 +53,8 @@ public final class DefaultAdminService implements AdminService {
                 PasswordHasher.hash(rawPassword),
                 true,
                 LocalDateTime.now(),
-                0));
+                0,
+                null));
         
         // Automatically create profile records for STUDENT and INSTRUCTOR roles,
         // matching the pattern used in seed data

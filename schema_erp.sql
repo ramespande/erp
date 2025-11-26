@@ -190,13 +190,14 @@ INSERT INTO courses (course_id, code, title, credits) VALUES
 ('CRS-005', 'CS401', 'Machine Learning', 4);
 
 -- Sections (Current semester: Semester 1, Year 2024)
+-- Registration deadlines set to 1 year in the future to allow testing
 INSERT INTO sections (section_id, course_id, instructor_id, day_of_week, start_time, end_time, room, capacity, semester, academic_year, registration_deadline) VALUES
-('SEC-001', 'CRS-001', 'USR-INST-001', 'MONDAY', '09:00:00', '10:30:00', 'LH-101', 60, 1, 2024, '2024-08-15'),
-('SEC-002', 'CRS-001', 'USR-INST-001', 'WEDNESDAY', '14:00:00', '15:30:00', 'LH-102', 60, 1, 2024, '2024-08-15'),
-('SEC-003', 'CRS-002', 'USR-INST-001', 'TUESDAY', '11:00:00', '12:30:00', 'LH-201', 50, 1, 2024, '2024-08-15'),
-('SEC-004', 'CRS-003', 'USR-INST-001', 'THURSDAY', '09:00:00', '10:30:00', 'LAB-301', 40, 1, 2024, '2024-08-15'),
-('SEC-005', 'CRS-004', 'USR-INST-002', 'FRIDAY', '10:00:00', '11:30:00', 'LH-103', 70, 1, 2024, '2024-08-15'),
-('SEC-006', 'CRS-005', 'USR-INST-001', 'MONDAY', '14:00:00', '16:00:00', 'LH-301', 45, 1, 2024, '2024-08-15');
+('SEC-001', 'CRS-001', 'USR-INST-001', 'MONDAY', '09:00:00', '10:30:00', 'LH-101', 60, 1, 2024, DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),
+('SEC-002', 'CRS-001', 'USR-INST-001', 'WEDNESDAY', '14:00:00', '15:30:00', 'LH-102', 60, 1, 2024, DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),
+('SEC-003', 'CRS-002', 'USR-INST-001', 'TUESDAY', '11:00:00', '12:30:00', 'LH-201', 50, 1, 2024, DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),
+('SEC-004', 'CRS-003', 'USR-INST-001', 'THURSDAY', '09:00:00', '10:30:00', 'LAB-301', 40, 1, 2024, DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),
+('SEC-005', 'CRS-004', 'USR-INST-002', 'FRIDAY', '10:00:00', '11:30:00', 'LH-103', 70, 1, 2024, DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),
+('SEC-006', 'CRS-005', 'USR-INST-001', 'MONDAY', '14:00:00', '16:00:00', 'LH-301', 45, 1, 2024, DATE_ADD(CURDATE(), INTERVAL 1 YEAR));
 
 -- Enrollments
 INSERT INTO enrollments (enrollment_id, student_id, section_id, status) VALUES

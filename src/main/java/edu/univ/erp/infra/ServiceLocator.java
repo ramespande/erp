@@ -74,6 +74,10 @@ public final class ServiceLocator {
         return ERP_REPOSITORY;
     }
 
+    public static AuthRepository authRepository() {
+        return AUTH_REPOSITORY;
+    }
+
     /**
      * Data is persisted immediately through JDBC, so this is a no-op that remains for
      * backwards compatibility.

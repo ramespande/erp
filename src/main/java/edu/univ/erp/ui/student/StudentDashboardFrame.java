@@ -7,6 +7,7 @@ import edu.univ.erp.api.types.TimetableEntry;
 import edu.univ.erp.infra.ServiceLocator;
 import edu.univ.erp.service.AuthService;
 import edu.univ.erp.service.StudentService;
+import edu.univ.erp.ui.auth.LoginFrame;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -19,6 +20,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
@@ -345,9 +347,14 @@ public final class StudentDashboardFrame extends JFrame {
         styleSecondaryAction(changePasswordButton);
         changePasswordButton.addActionListener(e -> showChangePasswordDialog());
         
+        JButton logoutButton = new JButton("Logout");
+        styleSecondaryAction(logoutButton);
+        logoutButton.addActionListener(e -> logout());
+        
         JPanel settingsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 8));
         settingsPanel.setOpaque(false);
         settingsPanel.add(changePasswordButton);
+        settingsPanel.add(logoutButton);
 
         hero.add(header, BorderLayout.NORTH);
         hero.add(quickLinks, BorderLayout.CENTER);
@@ -1031,6 +1038,20 @@ public final class StudentDashboardFrame extends JFrame {
             
             OperationResult<Void> result = authService.changePassword(currentPassword, newPassword);
             JOptionPane.showMessageDialog(this, result.getMessage().orElse(result.isSuccess() ? "Password changed successfully." : "Failed to change password."));
+        }
+    }
+
+    private void logout() {
+        int confirm = JOptionPane.showConfirmDialog(
+            this,
+            "Are you sure you want to logout?",
+            "Logout",
+            JOptionPane.YES_NO_OPTION
+        );
+        if (confirm == JOptionPane.YES_OPTION) {
+            authService.logout();
+            dispose();
+            new LoginFrame().setVisible(true);
         }
     }
 

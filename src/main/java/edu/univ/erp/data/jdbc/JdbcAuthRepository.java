@@ -18,7 +18,7 @@ import java.util.Optional;
 public final class JdbcAuthRepository implements AuthRepository {
 
     private static final String SELECT_BASE = """
-            SELECT user_id, username, role, password_hash, active, last_login, failed_attempts
+            SELECT user_id, username, role, password_hash, active, last_login, failed_attempts, lockout_until
             FROM auth_users
             """;
 
@@ -43,15 +43,16 @@ public final class JdbcAuthRepository implements AuthRepository {
     @Override
     public void save(AuthRecord record) {
         String sql = """
-                INSERT INTO auth_users (user_id, username, role, password_hash, active, last_login, failed_attempts)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO auth_users (user_id, username, role, password_hash, active, last_login, failed_attempts, lockout_until)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                     username = VALUES(username),
                     role = VALUES(role),
                     password_hash = VALUES(password_hash),
                     active = VALUES(active),
                     last_login = VALUES(last_login),
-                    failed_attempts = VALUES(failed_attempts)
+                    failed_attempts = VALUES(failed_attempts),
+                    lockout_until = VALUES(lockout_until)
                 """;
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -67,6 +68,12 @@ public final class JdbcAuthRepository implements AuthRepository {
                 ps.setTimestamp(6, null);
             }
             ps.setInt(7, record.failedAttempts());
+            LocalDateTime lockoutUntil = record.lockoutUntil();
+            if (lockoutUntil != null) {
+                ps.setTimestamp(8, Timestamp.valueOf(lockoutUntil));
+            } else {
+                ps.setTimestamp(8, null);
+            }
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save auth record", e);
@@ -112,7 +119,9 @@ public final class JdbcAuthRepository implements AuthRepository {
         Timestamp lastLoginTs = rs.getTimestamp("last_login");
         LocalDateTime lastLogin = lastLoginTs == null ? null : lastLoginTs.toLocalDateTime();
         int failedAttempts = rs.getInt("failed_attempts");
-        return new AuthRecord(userId, username, role, passwordHash, active, lastLogin, failedAttempts);
+        Timestamp lockoutUntilTs = rs.getTimestamp("lockout_until");
+        LocalDateTime lockoutUntil = lockoutUntilTs == null ? null : lockoutUntilTs.toLocalDateTime();
+        return new AuthRecord(userId, username, role, passwordHash, active, lastLogin, failedAttempts, lockoutUntil);
     }
 
     @FunctionalInterface

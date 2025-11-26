@@ -23,6 +23,7 @@ CREATE TABLE auth_users (
     active BOOLEAN DEFAULT TRUE,
     last_login TIMESTAMP NULL,
     failed_attempts INT DEFAULT 0,
+    lockout_until TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
@@ -42,13 +43,13 @@ CREATE TABLE auth_users (
 -- inst123:  $2a$10$9Xq8l5YhZJBKPpolJvbKNeFwGfr5R3Xr9KXKMqKJZV.lj6QJcHq5G
 -- stu123:   $2a$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGQRQObDQQ5GZo5CmVXJHoC
 
-INSERT INTO auth_users (user_id, username, role, password_hash, active, last_login, failed_attempts) VALUES
-('USR-ADMIN-001', 'admin1', 'ADMIN', '$2a$12$6rR0S7iOD5JB.odBsoZWP.I7QwBLM5IdaoxFCdKgu2YXAVlBA6wIe', TRUE, NULL, 0),
-('USR-INST-001', 'inst1', 'INSTRUCTOR', '$2a$12$uSnJDSg3Y8zFTew6rQGO/O81nPl25iEI9WsqGybYYw/A9pn17VovO', TRUE, NULL, 0),
-('USR-INST-002', 'inst2', 'INSTRUCTOR', '$2a$12$uSnJDSg3Y8zFTew6rQGO/O81nPl25iEI9WsqGybYYw/A9pn17VovO', TRUE, NULL, 0),
-('USR-STU-001', 'stu1', 'STUDENT', '$2a$12$jdgqBZ7idDENwgCMmApOjuPI1uGpADTDARBW3YdRoNDEG6QZz6KEG', TRUE, NULL, 0),
-('USR-STU-002', 'stu2', 'STUDENT', '$2a$12$jdgqBZ7idDENwgCMmApOjuPI1uGpADTDARBW3YdRoNDEG6QZz6KEG', TRUE, NULL, 0),
-('USR-STU-003', 'stu3', 'STUDENT', '$2a$12$jdgqBZ7idDENwgCMmApOjuPI1uGpADTDARBW3YdRoNDEG6QZz6KEG', TRUE, NULL, 0);
+INSERT INTO auth_users (user_id, username, role, password_hash, active, last_login, failed_attempts, lockout_until) VALUES
+('USR-ADMIN-001', 'admin1', 'ADMIN', '$2a$12$6rR0S7iOD5JB.odBsoZWP.I7QwBLM5IdaoxFCdKgu2YXAVlBA6wIe', TRUE, NULL, 0, NULL),
+('USR-INST-001', 'inst1', 'INSTRUCTOR', '$2a$12$uSnJDSg3Y8zFTew6rQGO/O81nPl25iEI9WsqGybYYw/A9pn17VovO', TRUE, NULL, 0, NULL),
+('USR-INST-002', 'inst2', 'INSTRUCTOR', '$2a$12$uSnJDSg3Y8zFTew6rQGO/O81nPl25iEI9WsqGybYYw/A9pn17VovO', TRUE, NULL, 0, NULL),
+('USR-STU-001', 'stu1', 'STUDENT', '$2a$12$jdgqBZ7idDENwgCMmApOjuPI1uGpADTDARBW3YdRoNDEG6QZz6KEG', TRUE, NULL, 0, NULL),
+('USR-STU-002', 'stu2', 'STUDENT', '$2a$12$jdgqBZ7idDENwgCMmApOjuPI1uGpADTDARBW3YdRoNDEG6QZz6KEG', TRUE, NULL, 0, NULL),
+('USR-STU-003', 'stu3', 'STUDENT', '$2a$12$jdgqBZ7idDENwgCMmApOjuPI1uGpADTDARBW3YdRoNDEG6QZz6KEG', TRUE, NULL, 0, NULL);
 
 -- ============================================================================
 -- VERIFICATION QUERIES
