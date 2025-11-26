@@ -470,15 +470,28 @@ public final class AdminDashboardFrame extends JFrame {
                 JOptionPane.showMessageDialog(this, "Please fill all fields.");
                 return;
             }
-            Course course = new Course(courseId, code, title, parseInt(credits, 4));
-            var result = adminService.addCourse(course);
-            JOptionPane.showMessageDialog(this, result.getMessage().orElse(result.isSuccess() ? "Course added. Students and instructors may need to refresh their views." : "Failed."));
-            if (result.isSuccess()) {
-                courseIdField.setText("");
-                codeField.setText("");
-                titleField.setText("");
-                creditsField.setText("");
-                loadCoursesAndSections();
+            try {
+                int creditsValue = parseInt(credits, 4);
+                if (creditsValue <= 0 || creditsValue > 6) {
+                    JOptionPane.showMessageDialog(this, "Credits must be between 1 and 6.");
+                    return;
+                }
+                Course course = new Course(courseId, code, title, creditsValue);
+                var result = adminService.addCourse(course);
+                if (result.isSuccess()) {
+                    JOptionPane.showMessageDialog(this, "Course added successfully. Students and instructors may need to refresh their views.");
+                    courseIdField.setText("");
+                    codeField.setText("");
+                    titleField.setText("");
+                    creditsField.setText("");
+                    loadCoursesAndSections();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Failed to add course: " + result.getMessage().orElse("Unknown error."), "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(this, "Invalid credits value. Please enter a number between 1 and 6.", "Error", JOptionPane.ERROR_MESSAGE);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error adding course: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
 
@@ -580,28 +593,43 @@ public final class AdminDashboardFrame extends JFrame {
                     JOptionPane.showMessageDialog(this, "Please fill required fields (Section ID, Course ID, Day, Start Time, End Time).");
                     return;
                 }
+                if (instructorId.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Instructor ID is required. Please enter a valid instructor user ID (e.g., USR-INST-001).");
+                    return;
+                }
                 LocalDate deadlineDate;
                 if (deadline.isEmpty()) {
                     deadlineDate = LocalDate.now().plusWeeks(2);
                 } else {
                     deadlineDate = LocalDate.parse(deadline);
                 }
+                int capacityValue = parseInt(capacity, 30);
+                if (capacityValue <= 0) {
+                    JOptionPane.showMessageDialog(this, "Capacity must be greater than 0.");
+                    return;
+                }
+                LocalTime startTime = LocalTime.parse(start);
+                LocalTime endTime = LocalTime.parse(end);
+                if (!startTime.isBefore(endTime)) {
+                    JOptionPane.showMessageDialog(this, "Start time must be before end time.");
+                    return;
+                }
                 Section section = new Section(
                         sectionId,
                         courseId,
-                        instructorId.isEmpty() ? "" : instructorId,
+                        instructorId,
                         DayOfWeek.valueOf(day.toUpperCase()),
-                        LocalTime.parse(start),
-                        LocalTime.parse(end),
+                        startTime,
+                        endTime,
                         room,
-                        parseInt(capacity, 30),
+                        capacityValue,
                         semester.isEmpty() ? 1 : parseInt(semester, 1),
                         year.isEmpty() ? LocalDate.now().getYear() : parseInt(year, LocalDate.now().getYear()),
                         deadlineDate
                 );
                 var result = adminService.addSection(section);
-                JOptionPane.showMessageDialog(this, result.getMessage().orElse(result.isSuccess() ? "Section added. Students and instructors may need to refresh their views." : "Failed."));
                 if (result.isSuccess()) {
+                    JOptionPane.showMessageDialog(this, "Section added successfully. Students and instructors may need to refresh their views.");
                     sectionIdField.setText("");
                     sectionCourseIdField.setText("");
                     instructorIdField.setText("");
@@ -614,9 +642,17 @@ public final class AdminDashboardFrame extends JFrame {
                     yearField.setText("");
                     deadlineField.setText("");
                     loadCoursesAndSections();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Failed to add section: " + result.getMessage().orElse("Unknown error."), "Error", JOptionPane.ERROR_MESSAGE);
                 }
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(this, "Invalid input: " + ex.getMessage() + "\n\nDay must be one of: MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY\nTime format must be HH:mm (e.g., 09:00)", "Error", JOptionPane.ERROR_MESSAGE);
+            } catch (java.time.format.DateTimeParseException ex) {
+                JOptionPane.showMessageDialog(this, "Invalid date/time format: " + ex.getMessage() + "\n\nTime format: HH:mm (e.g., 09:00)\nDate format: YYYY-MM-DD (e.g., 2024-12-31)", "Error", JOptionPane.ERROR_MESSAGE);
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(this, "Invalid number format: " + ex.getMessage() + "\n\nPlease enter valid numbers for capacity, semester, and year.", "Error", JOptionPane.ERROR_MESSAGE);
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
+                JOptionPane.showMessageDialog(this, "Error adding section: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
 
@@ -626,7 +662,7 @@ public final class AdminDashboardFrame extends JFrame {
         formCard.add(addSectionButton, gbc);
 
         // Maintenance Toggle
-        gbc.gridx = 0; gbc.gridy = 19;
+        gbc.gridx = 0; gbc.gridy = 24;
         gbc.gridwidth = 1;
         gbc.anchor = GridBagConstraints.WEST;
         formCard.add(new JLabel("Maintenance Mode", SwingConstants.LEFT), gbc);
@@ -642,7 +678,7 @@ public final class AdminDashboardFrame extends JFrame {
             refreshMaintenanceLabel();
         });
 
-        gbc.gridx = 0; gbc.gridy = 20;
+        gbc.gridx = 0; gbc.gridy = 25;
         gbc.gridwidth = 2;
         gbc.anchor = GridBagConstraints.CENTER;
         formCard.add(toggleButton, gbc);
