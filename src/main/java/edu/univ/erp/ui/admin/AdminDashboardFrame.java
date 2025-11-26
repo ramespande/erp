@@ -645,12 +645,12 @@ public final class AdminDashboardFrame extends JFrame {
                 } else {
                     JOptionPane.showMessageDialog(this, "Failed to add section: " + result.getMessage().orElse("Unknown error."), "Error", JOptionPane.ERROR_MESSAGE);
                 }
-            } catch (IllegalArgumentException ex) {
-                JOptionPane.showMessageDialog(this, "Invalid input: " + ex.getMessage() + "\n\nDay must be one of: MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY\nTime format must be HH:mm (e.g., 09:00)", "Error", JOptionPane.ERROR_MESSAGE);
-            } catch (java.time.format.DateTimeParseException ex) {
-                JOptionPane.showMessageDialog(this, "Invalid date/time format: " + ex.getMessage() + "\n\nTime format: HH:mm (e.g., 09:00)\nDate format: YYYY-MM-DD (e.g., 2024-12-31)", "Error", JOptionPane.ERROR_MESSAGE);
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(this, "Invalid number format: " + ex.getMessage() + "\n\nPlease enter valid numbers for capacity, semester, and year.", "Error", JOptionPane.ERROR_MESSAGE);
+            } catch (java.time.format.DateTimeParseException ex) {
+                JOptionPane.showMessageDialog(this, "Invalid date/time format: " + ex.getMessage() + "\n\nTime format: HH:mm (e.g., 09:00)\nDate format: YYYY-MM-DD (e.g., 2024-12-31)", "Error", JOptionPane.ERROR_MESSAGE);
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(this, "Invalid input: " + ex.getMessage() + "\n\nDay must be one of: MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY\nTime format must be HH:mm (e.g., 09:00)", "Error", JOptionPane.ERROR_MESSAGE);
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error adding section: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
