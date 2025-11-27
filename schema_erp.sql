@@ -236,14 +236,14 @@ INSERT INTO settings (key_name, value) VALUES
 -- ============================================================================
 -- VERIFICATION QUERIES
 -- ============================================================================
--- SELECT * FROM students;
--- SELECT * FROM instructors;
--- SELECT * FROM courses;
--- SELECT * FROM sections;
--- SELECT * FROM enrollments;
--- SELECT * FROM grade_books;
--- SELECT * FROM grade_components;
--- SELECT * FROM settings;
+SELECT * FROM students;
+SELECT * FROM instructors;
+SELECT * FROM courses;
+SELECT * FROM sections;
+SELECT * FROM enrollments;
+SELECT * FROM grade_books;
+SELECT * FROM grade_components;
+SELECT * FROM settings;
 
 -- Get student enrollments with course details
 -- SELECT 

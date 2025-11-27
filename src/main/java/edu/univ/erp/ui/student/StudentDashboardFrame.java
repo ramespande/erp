@@ -25,7 +25,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
-import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
@@ -81,34 +80,11 @@ public final class StudentDashboardFrame extends JFrame {
             new Color(255, 255, 255, 200),
             new Color(220, 225, 230)
     );
-    private static final ThemePalette DARK_THEME = new ThemePalette(
-            new Color(24, 29, 36),
-            new Color(39, 47, 58),
-            new Color(55, 65, 78),
-            new Color(50, 58, 70),
-            new Color(57, 66, 78),
-            new Color(230, 236, 243),
-            new Color(230, 236, 243),
-            new Color(173, 183, 196),
-            new Color(150, 160, 175),
-            new Color(52, 61, 74),
-            new Color(230, 236, 243),
-            new Color(59, 85, 98),
-            new Color(230, 236, 243),
-            new Color(45, 54, 66),
-            new Color(173, 183, 196),
-            new Color(150, 160, 175),
-            new Color(60, 70, 85),
-            new Color(39, 47, 58),
-            new Color(70, 80, 95)
-    );
-
     private final StudentService studentService = ServiceLocator.studentService();
     private final AuthService authService = ServiceLocator.authService();
     private final String studentId;
 
-    private ThemePalette theme = LIGHT_THEME;
-    private boolean darkMode;
+    private final ThemePalette theme = LIGHT_THEME;
 
     private final DefaultTableModel catalogModel = new DefaultTableModel(new Object[] {
             "Section ID", "Course", "Title", "Credits", "Instructor", "Schedule", "Capacity", "Taken"
@@ -116,7 +92,6 @@ public final class StudentDashboardFrame extends JFrame {
     private final TimetableGrid timetableGrid = new TimetableGrid();
     private final GradeDeckPanel gradeDeck = new GradeDeckPanel();
     private final JTabbedPane tabs = new JTabbedPane();
-    private final List<JToggleButton> themeToggles = new ArrayList<>();
 
     private final JLabel maintenanceLabel = new JLabel("", SwingConstants.CENTER);
 
@@ -141,7 +116,6 @@ public final class StudentDashboardFrame extends JFrame {
         int selectedIndex = tabs.getTabCount() > 0 ? tabs.getSelectedIndex() : 0;
         tabs.removeAll();
         timetableGrid.refreshTheme();
-        themeToggles.clear();
 
         tabs.addTab("Home", buildHomePanel(tabs));
         tabs.addTab("Catalog", buildCatalogPanel(tabs));
@@ -170,37 +144,8 @@ public final class StudentDashboardFrame extends JFrame {
         getContentPane().setBackground(theme.background());
         maintenanceLabel.setBackground(theme.background());
         maintenanceLabel.setForeground(theme.textSecondary());
-
-        updateThemeToggleStates();
         revalidate();
         repaint();
-    }
-
-    private void setDarkMode(boolean enabled) {
-        if (darkMode == enabled) {
-            updateThemeToggleStates();
-            return;
-        }
-        darkMode = enabled;
-        theme = enabled ? DARK_THEME : LIGHT_THEME;
-        rebuildTabs();
-        refreshAll();
-    }
-
-    private void updateThemeToggleStates() {
-        for (JToggleButton toggle : themeToggles) {
-            toggle.setSelected(darkMode);
-            styleThemeToggle(toggle);
-        }
-    }
-
-    private void styleThemeToggle(JToggleButton toggle) {
-        toggle.setFocusPainted(false);
-        toggle.setBackground(darkMode ? BRAND_PRIMARY.darker() : theme.cardBackground());
-        toggle.setForeground(theme.textPrimary());
-        toggle.setBorder(BorderFactory.createLineBorder(theme.cardBorder()));
-        toggle.setOpaque(true);
-        toggle.setText(darkMode ? "🌙" : "☀");
     }
 
     private JPanel buildCatalogPanel(JTabbedPane tabs) {
@@ -379,7 +324,6 @@ public final class StudentDashboardFrame extends JFrame {
         JPanel heroWrapper = new JPanel(new BorderLayout());
         heroWrapper.setOpaque(false);
         heroWrapper.setBorder(BorderFactory.createEmptyBorder(0, 24, 0, 0));
-        heroWrapper.add(createThemeBar(), BorderLayout.NORTH);
         heroWrapper.add(hero, BorderLayout.CENTER);
 
         panel.add(nav, BorderLayout.WEST);
@@ -428,34 +372,6 @@ public final class StudentDashboardFrame extends JFrame {
         return nav;
     }
 
-    private JPanel createThemeBar() {
-        JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 4));
-        bar.setOpaque(true);
-        bar.setBackground(theme.chromeBackground());
-        bar.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(theme.chromeBorder()),
-                BorderFactory.createEmptyBorder(4, 12, 4, 12)
-        ));
-
-        JLabel sun = new JLabel("☀");
-        sun.setForeground(theme.textSecondary());
-
-        JToggleButton toggle = new JToggleButton();
-        toggle.setPreferredSize(new Dimension(56, 24));
-        toggle.addActionListener(e -> setDarkMode(toggle.isSelected()));
-        themeToggles.add(toggle);
-        toggle.setSelected(darkMode);
-        styleThemeToggle(toggle);
-
-        JLabel moon = new JLabel("🌙");
-        moon.setForeground(theme.textSecondary());
-
-        bar.add(sun);
-        bar.add(toggle);
-        bar.add(moon);
-        return bar;
-    }
-
     private JPanel createPageLayout(JTabbedPane tabs, String title, String subtitle, JComponent body) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
@@ -484,7 +400,6 @@ public final class StudentDashboardFrame extends JFrame {
 
         JPanel headerWrapper = new JPanel(new BorderLayout());
         headerWrapper.setOpaque(false);
-        headerWrapper.add(createThemeBar(), BorderLayout.NORTH);
         headerWrapper.add(header, BorderLayout.CENTER);
 
         content.add(headerWrapper, BorderLayout.NORTH);
