@@ -11,9 +11,11 @@ import edu.univ.erp.domain.grade.GradeComponent;
 import edu.univ.erp.service.InstructorService;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public final class DefaultInstructorService implements InstructorService {
 
@@ -122,9 +124,92 @@ public final class DefaultInstructorService implements InstructorService {
         return OperationResult.success(null, "Final grades computed.");
     }
 
+    @Override
+    public OperationResult<List<GradeComponent>> listGradeComponents(String instructorId,
+                                                                     String sectionId,
+                                                                     String enrollmentId) {
+        Optional<Section> section = ensureOwnership(instructorId, sectionId);
+        if (section.isEmpty()) {
+            return OperationResult.failure("Not your section.");
+        }
+        Optional<Enrollment> enrollment = findEnrollment(sectionId, enrollmentId);
+        if (enrollment.isEmpty()) {
+            return OperationResult.failure("Enrollment does not belong to section.");
+        }
+        List<GradeComponent> components = erpRepository.findGradeBook(enrollmentId)
+                .map(gradeBook -> new ArrayList<>(gradeBook.getComponents()))
+                .orElseGet(ArrayList::new);
+        return OperationResult.success(components);
+    }
+
+    @Override
+    public OperationResult<Void> saveGradeComponents(String instructorId,
+                                                     String sectionId,
+                                                     String enrollmentId,
+                                                     List<GradeComponent> components) {
+        if (!accessController.canInstructorWrite()) {
+            return OperationResult.failure("Maintenance mode ON. Grade entry disabled.");
+        }
+        Optional<Section> section = ensureOwnership(instructorId, sectionId);
+        if (section.isEmpty()) {
+            return OperationResult.failure("Not your section.");
+        }
+        Optional<Enrollment> enrollment = findEnrollment(sectionId, enrollmentId);
+        if (enrollment.isEmpty()) {
+            return OperationResult.failure("Enrollment does not belong to section.");
+        }
+        List<GradeComponent> sanitized = components == null ? List.of() : components;
+        OperationResult<Void> validation = validateComponents(sanitized);
+        if (!validation.isSuccess()) {
+            return validation;
+        }
+        Double finalGrade = sanitized.isEmpty()
+                ? null
+                : sanitized.stream()
+                .mapToDouble(component -> component.getScore() * component.getWeight())
+                .sum();
+        GradeBook gradeBook = new GradeBook(enrollmentId, new ArrayList<>(sanitized), finalGrade);
+        erpRepository.saveGradeBook(gradeBook);
+        return OperationResult.success(null, "Grade book saved.");
+    }
+
     private Optional<Section> ensureOwnership(String instructorId, String sectionId) {
         return erpRepository.findSection(sectionId)
                 .filter(section -> section.getInstructorId().equals(instructorId));
+    }
+
+    private Optional<Enrollment> findEnrollment(String sectionId, String enrollmentId) {
+        return erpRepository.findEnrollmentsBySection(sectionId)
+                .stream()
+                .filter(enrollment -> enrollment.getEnrollmentId().equals(enrollmentId))
+                .findFirst();
+    }
+
+    private OperationResult<Void> validateComponents(List<GradeComponent> components) {
+        if (components.isEmpty()) {
+            return OperationResult.success(null);
+        }
+        Set<String> names = new HashSet<>();
+        double totalWeight = 0d;
+        for (GradeComponent component : components) {
+            if (component.getName() == null || component.getName().isBlank()) {
+                return OperationResult.failure("Component name cannot be empty.");
+            }
+            if (!names.add(component.getName().trim().toUpperCase())) {
+                return OperationResult.failure("Duplicate component: " + component.getName());
+            }
+            if (component.getScore() < 0 || component.getScore() > 100) {
+                return OperationResult.failure("Scores must be between 0 and 100.");
+            }
+            if (component.getWeight() <= 0 || component.getWeight() > 1) {
+                return OperationResult.failure("Weights must be greater than 0 and at most 1.");
+            }
+            totalWeight += component.getWeight();
+        }
+        if (Math.abs(totalWeight - 1.0) > 0.001) {
+            return OperationResult.failure("Weights must total 1.0. Current total: " + String.format("%.2f", totalWeight));
+        }
+        return OperationResult.success(null);
     }
 }
 

@@ -4,11 +4,13 @@ import edu.univ.erp.access.AccessController;
 import edu.univ.erp.data.memory.InMemoryDataStore;
 import edu.univ.erp.data.memory.InMemoryErpRepository;
 import edu.univ.erp.domain.enrollment.Enrollment;
+import edu.univ.erp.domain.grade.GradeComponent;
 import edu.univ.erp.service.impl.DefaultInstructorService;
 import edu.univ.erp.support.TestData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -78,6 +80,35 @@ class InstructorServiceTest {
 
         assertFalse(result.isSuccess());
         assertTrue(result.getMessage().orElse("").contains("Maintenance mode ON"));
+    }
+
+    @Test
+    void shouldSaveAndListGradeComponents() {
+        var components = List.of(
+                new GradeComponent("Quiz", 80, 0.4),
+                new GradeComponent("Project", 90, 0.3),
+                new GradeComponent("Final", 85, 0.3)
+        );
+
+        var saveResult = service.saveGradeComponents(instructorId, "section-1", enrollmentId, components);
+        assertTrue(saveResult.isSuccess());
+
+        var listResult = service.listGradeComponents(instructorId, "section-1", enrollmentId);
+        assertTrue(listResult.isSuccess());
+        assertEquals(3, listResult.getPayload().orElseThrow().size());
+    }
+
+    @Test
+    void shouldRejectComponentsWhenWeightsDoNotSumToOne() {
+        var components = List.of(
+                new GradeComponent("Quiz", 80, 0.2),
+                new GradeComponent("Final", 90, 0.2)
+        );
+
+        var result = service.saveGradeComponents(instructorId, "section-1", enrollmentId, components);
+
+        assertFalse(result.isSuccess());
+        assertTrue(result.getMessage().orElse("").contains("Weights must total 1.0"));
     }
 }
 

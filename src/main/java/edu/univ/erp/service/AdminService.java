@@ -18,5 +18,9 @@ public interface AdminService {
     OperationResult<Section> addSection(Section section);
 
     OperationResult<Void> assignInstructor(String sectionId, String instructorId);
+
+    OperationResult<Void> temporaryLockUser(String username, int minutes);
+
+    OperationResult<Void> unlockUser(String username);
 }
 

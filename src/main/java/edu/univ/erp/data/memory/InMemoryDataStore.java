@@ -37,6 +37,7 @@ public final class InMemoryDataStore implements Serializable {
     private static final long serialVersionUID = 1L;
     private static final String DATA_DIR = "data";
     private static final String DATA_FILE = "erp-data.dat";
+    private static final boolean ENABLE_DISK_CACHE = Boolean.parseBoolean(System.getProperty("erp.memory.disk", "false"));
     
     private static Path getDataFilePath() {
         // Try to use a data directory in the current working directory
@@ -63,7 +64,7 @@ public final class InMemoryDataStore implements Serializable {
     private MaintenanceSetting maintenanceSetting = new MaintenanceSetting(false);
 
     public static InMemoryDataStore seed() {
-        InMemoryDataStore store = load();
+        InMemoryDataStore store = ENABLE_DISK_CACHE ? load() : null;
         if (store == null) {
             store = new InMemoryDataStore();
             store.bootstrap();
@@ -73,6 +74,9 @@ public final class InMemoryDataStore implements Serializable {
     }
 
     public static InMemoryDataStore load() {
+        if (!ENABLE_DISK_CACHE) {
+            return null;
+        }
         Path dataPath = getDataFilePath();
         if (!Files.exists(dataPath)) {
             return null;
@@ -87,6 +91,9 @@ public final class InMemoryDataStore implements Serializable {
     }
 
     public void save() {
+        if (!ENABLE_DISK_CACHE) {
+            return;
+        }
         Path dataPath = getDataFilePath();
         try {
             // Ensure parent directory exists

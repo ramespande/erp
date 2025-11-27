@@ -121,5 +121,29 @@ public final class DefaultAdminService implements AdminService {
                 })
                 .orElseGet(() -> OperationResult.failure("Section not found."));
     }
+
+    @Override
+    public OperationResult<Void> temporaryLockUser(String username, int minutes) {
+        if (minutes <= 0) {
+            return OperationResult.failure("Lock duration must be positive.");
+        }
+        return authRepository.findByUsername(username)
+                .map(record -> {
+                    LocalDateTime until = LocalDateTime.now().plusMinutes(minutes);
+                    authRepository.save(record.withFailedAttempts(0).withLockoutUntil(until));
+                    return OperationResult.<Void>success(null, "User locked for " + minutes + " minute(s).");
+                })
+                .orElseGet(() -> OperationResult.failure("User not found."));
+    }
+
+    @Override
+    public OperationResult<Void> unlockUser(String username) {
+        return authRepository.findByUsername(username)
+                .map(record -> {
+                    authRepository.save(record.withFailedAttempts(0).withLockoutUntil(null));
+                    return OperationResult.<Void>success(null, "User unlocked.");
+                })
+                .orElseGet(() -> OperationResult.failure("User not found."));
+    }
 }
 

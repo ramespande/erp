@@ -8,10 +8,12 @@ import edu.univ.erp.domain.course.Course;
 import edu.univ.erp.domain.course.Section;
 import edu.univ.erp.domain.instructor.Instructor;
 import edu.univ.erp.domain.student.Student;
+import edu.univ.erp.infra.DemoCatalogSeeder;
 import edu.univ.erp.infra.ServiceLocator;
 import edu.univ.erp.service.AdminService;
 import edu.univ.erp.service.AuthService;
 import edu.univ.erp.service.MaintenanceService;
+import edu.univ.erp.service.support.CourseSectionBackupService;
 import edu.univ.erp.ui.auth.LoginFrame;
 
 import javax.swing.BorderFactory;
@@ -20,6 +22,7 @@ import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -39,6 +42,10 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -97,6 +104,7 @@ public final class AdminDashboardFrame extends JFrame {
     private final ErpRepository erpRepository = ServiceLocator.erpRepository();
     private final AuthService authService = ServiceLocator.authService();
     private final AuthRepository authRepository = ServiceLocator.authRepository();
+    private final CourseSectionBackupService backupService = new CourseSectionBackupService(erpRepository);
 
     private ThemePalette theme = LIGHT_THEME;
     private boolean darkMode;
@@ -261,9 +269,39 @@ public final class AdminDashboardFrame extends JFrame {
         stylePrimaryAction(refresh);
         refresh.addActionListener(e -> loadUsers());
 
+        JButton lockButton = new JButton("Temp Lock 10m");
+        styleSecondaryAction(lockButton);
+        lockButton.addActionListener(e -> {
+            int row = table.getSelectedRow();
+            if (row < 0) {
+                JOptionPane.showMessageDialog(this, "Select a user first.");
+                return;
+            }
+            String username = usersModel.getValueAt(row, 1).toString();
+            var result = adminService.temporaryLockUser(username, 10);
+            JOptionPane.showMessageDialog(this, result.getMessage().orElse(result.isSuccess() ? "User locked." : "Failed to lock user."));
+            loadUsers();
+        });
+
+        JButton unlockButton = new JButton("Unlock User");
+        styleSecondaryAction(unlockButton);
+        unlockButton.addActionListener(e -> {
+            int row = table.getSelectedRow();
+            if (row < 0) {
+                JOptionPane.showMessageDialog(this, "Select a user first.");
+                return;
+            }
+            String username = usersModel.getValueAt(row, 1).toString();
+            var result = adminService.unlockUser(username);
+            JOptionPane.showMessageDialog(this, result.getMessage().orElse(result.isSuccess() ? "User unlocked." : "Failed to unlock user."));
+            loadUsers();
+        });
+
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
         actions.setOpaque(false);
         actions.setBorder(BorderFactory.createEmptyBorder(16, 0, 0, 0));
+        actions.add(lockButton);
+        actions.add(unlockButton);
         actions.add(refresh);
 
         JPanel tableCard = createCardPanel();
@@ -322,10 +360,17 @@ public final class AdminDashboardFrame extends JFrame {
         sectionsCard.add(new JLabel("Sections", SwingConstants.CENTER), BorderLayout.NORTH);
         sectionsCard.add(new JScrollPane(sectionsTable), BorderLayout.CENTER);
 
-        JPanel cardsPanel = new JPanel(new BorderLayout());
-        cardsPanel.setOpaque(false);
-        cardsPanel.add(coursesCard, BorderLayout.NORTH);
-        cardsPanel.add(sectionsCard, BorderLayout.CENTER);
+        JPanel stack = new JPanel();
+        stack.setOpaque(false);
+        stack.setLayout(new BoxLayout(stack, BoxLayout.Y_AXIS));
+        stack.add(coursesCard);
+        stack.add(Box.createVerticalStrut(16));
+        stack.add(sectionsCard);
+
+        JScrollPane cardsPanel = new JScrollPane(stack);
+        cardsPanel.setBorder(BorderFactory.createEmptyBorder());
+        cardsPanel.getVerticalScrollBar().setUnitIncrement(16);
+        cardsPanel.getViewport().setBackground(theme.cardBackground());
 
         JButton refresh = new JButton("Refresh");
         stylePrimaryAction(refresh);
@@ -683,6 +728,32 @@ public final class AdminDashboardFrame extends JFrame {
         gbc.anchor = GridBagConstraints.CENTER;
         formCard.add(toggleButton, gbc);
 
+        gbc.gridx = 0; gbc.gridy = 26;
+        gbc.gridwidth = 2;
+        gbc.anchor = GridBagConstraints.WEST;
+        formCard.add(new JLabel("Data Utilities", SwingConstants.LEFT), gbc);
+        gbc.gridy++;
+
+        JButton seedButton = new JButton("Seed 100 Demo Courses");
+        styleSecondaryAction(seedButton);
+        seedButton.addActionListener(e -> seedDemoCourses());
+        gbc.gridx = 0; gbc.gridy = 27;
+        gbc.gridwidth = 2;
+        gbc.anchor = GridBagConstraints.CENTER;
+        formCard.add(seedButton, gbc);
+
+        JButton backupButton = new JButton("Backup Courses & Sections");
+        stylePrimaryAction(backupButton);
+        backupButton.addActionListener(e -> performBackup());
+        gbc.gridy = 28;
+        formCard.add(backupButton, gbc);
+
+        JButton restoreButton = new JButton("Restore Backup");
+        styleSecondaryAction(restoreButton);
+        restoreButton.addActionListener(e -> performRestore());
+        gbc.gridy = 29;
+        formCard.add(restoreButton, gbc);
+
         content.add(createThemeBar(), BorderLayout.NORTH);
         content.add(header, BorderLayout.NORTH);
         JScrollPane scrollPane = new JScrollPane(formCard);
@@ -737,41 +808,25 @@ public final class AdminDashboardFrame extends JFrame {
     private JPanel createNavigationColumn(JTabbedPane tabs) {
         JPanel nav = new JPanel();
         nav.setBackground(theme.navBackground());
-        nav.setPreferredSize(new Dimension(80, 0));
+        nav.setPreferredSize(new Dimension(200, 0));
         nav.setLayout(new BoxLayout(nav, BoxLayout.Y_AXIS));
-        nav.setBorder(BorderFactory.createEmptyBorder(16, 12, 16, 12));
+        nav.setBorder(BorderFactory.createEmptyBorder(24, 16, 24, 16));
 
-        JButton hamburger = new JButton("\u2630");
-        hamburger.setAlignmentX(0.5f);
-        hamburger.setFocusPainted(false);
-        hamburger.setBackground(BRAND_PRIMARY);
-        hamburger.setForeground(Color.WHITE);
-        hamburger.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        JLabel label = new JLabel("Navigate");
+        label.setForeground(theme.textPrimary());
+        label.setFont(label.getFont().deriveFont(Font.BOLD, 14f));
+        label.setAlignmentX(0f);
 
-        JPanel menuLinks = new JPanel();
-        menuLinks.setOpaque(false);
-        menuLinks.setLayout(new BoxLayout(menuLinks, BoxLayout.Y_AXIS));
-        menuLinks.add(Box.createVerticalStrut(16));
-        menuLinks.add(createNavLink("Home", tabs, 0));
-        menuLinks.add(Box.createVerticalStrut(8));
-        menuLinks.add(createNavLink("Users", tabs, 1));
-        menuLinks.add(Box.createVerticalStrut(8));
-        menuLinks.add(createNavLink("Courses", tabs, 2));
-        menuLinks.add(Box.createVerticalStrut(8));
-        menuLinks.add(createNavLink("Manage", tabs, 3));
-        menuLinks.add(Box.createVerticalGlue());
-        menuLinks.setVisible(false);
-
-        hamburger.addActionListener(e -> {
-            boolean show = !menuLinks.isVisible();
-            menuLinks.setVisible(show);
-            hamburger.setText(show ? "\u2715" : "\u2630");
-            nav.revalidate();
-            nav.repaint();
-        });
-
-        nav.add(hamburger);
-        nav.add(menuLinks);
+        nav.add(label);
+        nav.add(Box.createVerticalStrut(16));
+        nav.add(createNavLink("Home", tabs, 0));
+        nav.add(Box.createVerticalStrut(8));
+        nav.add(createNavLink("Users", tabs, 1));
+        nav.add(Box.createVerticalStrut(8));
+        nav.add(createNavLink("Courses", tabs, 2));
+        nav.add(Box.createVerticalStrut(8));
+        nav.add(createNavLink("Manage", tabs, 3));
+        nav.add(Box.createVerticalGlue());
         return nav;
     }
 
@@ -925,6 +980,46 @@ public final class AdminDashboardFrame extends JFrame {
                     section.getCapacity(),
                     section.getRegistrationDeadline()
             });
+        }
+    }
+
+    private void seedDemoCourses() {
+        DemoCatalogSeeder.ensureBaselineCatalog(erpRepository);
+        loadCoursesAndSections();
+        JOptionPane.showMessageDialog(this, "Demo catalog ensured. Reload views if needed.");
+    }
+
+    private void performBackup() {
+        var result = backupService.exportSnapshot();
+        if (!result.isSuccess()) {
+            JOptionPane.showMessageDialog(this, result.getMessage().orElse("Unable to create backup."));
+            return;
+        }
+        JFileChooser chooser = new JFileChooser();
+        chooser.setSelectedFile(new File("erp-backup.txt"));
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            try (FileWriter writer = new FileWriter(chooser.getSelectedFile())) {
+                writer.write(result.getPayload().orElse(""));
+                JOptionPane.showMessageDialog(this, "Backup saved.");
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(this, "Failed to save backup: " + ex.getMessage());
+            }
+        }
+    }
+
+    private void performRestore() {
+        JFileChooser chooser = new JFileChooser();
+        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            try {
+                String payload = Files.readString(chooser.getSelectedFile().toPath());
+                var result = backupService.importSnapshot(payload);
+                JOptionPane.showMessageDialog(this, result.getMessage().orElse(result.isSuccess() ? "Backup restored." : "Failed to restore backup."));
+                if (result.isSuccess()) {
+                    loadCoursesAndSections();
+                }
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(this, "Failed to read backup: " + ex.getMessage());
+            }
         }
     }
 

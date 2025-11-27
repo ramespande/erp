@@ -2,6 +2,7 @@ package edu.univ.erp.data.auth;
 
 import edu.univ.erp.domain.user.Role;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
 public record AuthRecord(
@@ -12,7 +13,7 @@ public record AuthRecord(
         boolean active,
         LocalDateTime lastLogin,
         int failedAttempts,
-        LocalDateTime lockoutUntil) {
+        LocalDateTime lockoutUntil) implements Serializable {
 
     public AuthRecord withPasswordHash(String newHash) {
         return new AuthRecord(userId, username, role, newHash, active, lastLogin, failedAttempts, lockoutUntil);

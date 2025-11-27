@@ -6,6 +6,8 @@ import edu.univ.erp.data.erp.ErpRepository;
 import edu.univ.erp.domain.course.Course;
 import edu.univ.erp.domain.course.Section;
 import edu.univ.erp.domain.enrollment.Enrollment;
+import edu.univ.erp.domain.grade.GradeBook;
+import edu.univ.erp.domain.grade.GradeComponent;
 import edu.univ.erp.domain.student.Student;
 import edu.univ.erp.infra.ServiceLocator;
 import edu.univ.erp.service.AuthService;
@@ -15,8 +17,10 @@ import edu.univ.erp.ui.auth.LoginFrame;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.DefaultComboBoxModel;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -38,9 +42,7 @@ import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public final class InstructorDashboardFrame extends JFrame {
 
@@ -99,9 +101,22 @@ public final class InstructorDashboardFrame extends JFrame {
     private final DefaultTableModel sectionsModel = new DefaultTableModel(new Object[] {
             "Section ID", "Course Code", "Day", "Time", "Room", "Capacity"
     }, 0);
-    private final DefaultTableModel enrollmentsModel = new DefaultTableModel(new Object[] {
-            "Enrollment ID", "Student ID", "Section ID"
-    }, 0);
+    private final DefaultTableModel classStatsModel = new DefaultTableModel(new Object[] {
+            "Section ID", "Course", "Enrolled", "Capacity", "Seats Left", "Fill %", "Avg Grade", "Deadline"
+    }, 0) {
+        @Override
+        public boolean isCellEditable(int row, int column) {
+            return false;
+        }
+    };
+    private final DefaultTableModel gradeComponentsModel = new DefaultTableModel(new Object[] {
+            "Component", "Score", "Weight"
+    }, 0) {
+        @Override
+        public boolean isCellEditable(int row, int column) {
+            return false;
+        }
+    };
     private final JTabbedPane tabs = new JTabbedPane();
     private final List<JToggleButton> themeToggles = new ArrayList<>();
 
@@ -131,12 +146,15 @@ public final class InstructorDashboardFrame extends JFrame {
         tabs.addTab("Home", buildHomePanel(tabs));
         tabs.addTab("My Sections", buildSectionsPanel(tabs));
         tabs.addTab("My Students", buildStudentsPanel(tabs));
+        tabs.addTab("Class Stats", buildClassStatsPanel(tabs));
         tabs.addTab("Grade Entry", buildGradeEntryPanel(tabs));
         
-        // Refresh sections when tab is selected
         tabs.addChangeListener(e -> {
-            if (tabs.getSelectedIndex() == 1) { // My Sections tab
+            int index = tabs.getSelectedIndex();
+            if (index == 1) {
                 loadSections();
+            } else if (index == 3) {
+                loadClassStats();
             }
         });
 
@@ -359,138 +377,194 @@ public final class InstructorDashboardFrame extends JFrame {
         return createPageLayout(tabs, "My Students", "View all students enrolled in your sections.", body);
     }
 
+    private JPanel buildClassStatsPanel(JTabbedPane tabs) {
+        JTable table = new JTable(classStatsModel);
+        styleDataTable(table);
+        table.setAutoCreateRowSorter(true);
+
+        JScrollPane scrollPane = createTableScrollPane(table);
+
+        JButton refresh = new JButton("Refresh");
+        stylePrimaryAction(refresh);
+        refresh.addActionListener(e -> loadClassStats());
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        actions.setOpaque(false);
+        actions.setBorder(BorderFactory.createEmptyBorder(16, 0, 0, 0));
+        actions.add(refresh);
+
+        JPanel tableCard = createCardPanel();
+        tableCard.add(scrollPane, BorderLayout.CENTER);
+        tableCard.add(actions, BorderLayout.SOUTH);
+
+        JPanel body = new JPanel(new BorderLayout());
+        body.setOpaque(false);
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setOpaque(false);
+        wrapper.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
+        wrapper.add(tableCard, BorderLayout.CENTER);
+        body.add(wrapper, BorderLayout.CENTER);
+
+        loadClassStats();
+        return createPageLayout(tabs, "Class Stats", "Monitor fill rates and grade health across sections.", body);
+    }
+
     private JPanel buildGradeEntryPanel(JTabbedPane tabs) {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
-        panel.setBackground(theme.background());
+        DefaultComboBoxModel<SectionOption> sectionOptions = new DefaultComboBoxModel<>();
+        populateSectionOptions(sectionOptions);
+        JComboBox<SectionOption> sectionCombo = new JComboBox<>(sectionOptions);
 
-        JPanel nav = createNavigationColumn(tabs);
-        JPanel content = new JPanel(new BorderLayout());
-        content.setOpaque(false);
-        content.setBorder(BorderFactory.createEmptyBorder(0, 24, 0, 0));
+        DefaultComboBoxModel<EnrollmentOption> enrollmentOptions = new DefaultComboBoxModel<>();
+        JComboBox<EnrollmentOption> enrollmentCombo = new JComboBox<>(enrollmentOptions);
 
-        JPanel header = new JPanel();
-        header.setOpaque(false);
-        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
-
-        JLabel titleLabel = new JLabel("Grade Entry");
-        titleLabel.setForeground(theme.textPrimary());
-        titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 26f));
-
-        JLabel subtitleLabel = new JLabel("Enter scores and compute final grades for your sections.");
-        subtitleLabel.setForeground(theme.subtitleText());
-        subtitleLabel.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 0));
-
-        header.add(titleLabel);
-        header.add(subtitleLabel);
-
-        JPanel formCard = createCardPanel();
-        formCard.setLayout(new GridBagLayout());
+        JPanel selectorCard = createCardPanel();
+        selectorCard.setLayout(new GridBagLayout());
+        selectorCard.setPreferredSize(new Dimension(260, 0));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new java.awt.Insets(10, 10, 10, 10);
         gbc.anchor = GridBagConstraints.WEST;
 
-        // Record Scores Form
         gbc.gridx = 0; gbc.gridy = 0;
-        formCard.add(new JLabel("Record Scores", SwingConstants.LEFT), gbc);
+        selectorCard.add(new JLabel("Section"), gbc);
         gbc.gridy++;
+        sectionCombo.setPreferredSize(new Dimension(220, 28));
+        selectorCard.add(sectionCombo, gbc);
 
-        JTextField sectionIdField = new JTextField(20);
-        JTextField enrollmentIdField = new JTextField(20);
-        JTextField scoresField = new JTextField(30);
-        scoresField.setToolTipText("Format: Quiz=20,Mid=25,End=30");
+        gbc.gridy++;
+        selectorCard.add(new JLabel("Enrollment"), gbc);
+        gbc.gridy++;
+        enrollmentCombo.setPreferredSize(new Dimension(220, 28));
+        selectorCard.add(enrollmentCombo, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 1;
-        formCard.add(new JLabel("Section ID:"), gbc);
-        gbc.gridx = 1;
-        formCard.add(sectionIdField, gbc);
+        JTable componentTable = new JTable(gradeComponentsModel);
+        styleDataTable(componentTable);
+        componentTable.setAutoCreateRowSorter(false);
+        JScrollPane tableScrollPane = createTableScrollPane(componentTable);
 
-        gbc.gridx = 0; gbc.gridy = 2;
-        formCard.add(new JLabel("Enrollment ID:"), gbc);
-        gbc.gridx = 1;
-        formCard.add(enrollmentIdField, gbc);
+        JLabel weightSummary = new JLabel("Total Weight: 0.00");
+        weightSummary.setForeground(theme.textSecondary());
+        JLabel previewSummary = new JLabel("Preview Final: -");
+        previewSummary.setForeground(theme.textSecondary());
 
-        gbc.gridx = 0; gbc.gridy = 3;
-        formCard.add(new JLabel("Component Scores:"), gbc);
-        gbc.gridx = 1;
-        formCard.add(scoresField, gbc);
+        JPanel summaryBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 4));
+        summaryBar.setOpaque(false);
+        summaryBar.add(weightSummary);
+        summaryBar.add(previewSummary);
 
-        JButton recordButton = new JButton("Record Scores");
-        stylePrimaryAction(recordButton);
-        recordButton.addActionListener(e -> {
-            String sectionId = sectionIdField.getText().trim();
-            String enrollmentId = enrollmentIdField.getText().trim();
-            String scores = scoresField.getText().trim();
-            if (sectionId.isEmpty() || enrollmentId.isEmpty() || scores.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Please fill all fields.");
-                return;
-            }
-            Map<String, Double> parsed = parseKeyValuePairs(scores);
-            var result = instructorService.recordScores(instructorId, sectionId, enrollmentId, parsed);
-            JOptionPane.showMessageDialog(this, result.getMessage().orElse("Done"));
-            if (result.isSuccess()) {
-                sectionIdField.setText("");
-                enrollmentIdField.setText("");
-                scoresField.setText("");
+        JPanel tableCard = createCardPanel();
+        tableCard.add(tableScrollPane, BorderLayout.CENTER);
+        tableCard.add(summaryBar, BorderLayout.SOUTH);
+
+        JButton addButton = new JButton("Add Component");
+        styleSecondaryAction(addButton);
+        addButton.addActionListener(e -> {
+            GradeComponent component = promptForComponent(null);
+            if (component != null) {
+                gradeComponentsModel.addRow(new Object[] {component.getName(), component.getScore(), component.getWeight()});
+                updateComponentSummaries(weightSummary, previewSummary);
             }
         });
 
-        gbc.gridx = 0; gbc.gridy = 4;
-        gbc.gridwidth = 2;
-        gbc.anchor = GridBagConstraints.CENTER;
-        formCard.add(recordButton, gbc);
-
-        // Compute Final Grades Form
-        gbc.gridx = 0; gbc.gridy = 5;
-        gbc.gridwidth = 1;
-        gbc.anchor = GridBagConstraints.WEST;
-        formCard.add(new JLabel("Compute Final Grades", SwingConstants.LEFT), gbc);
-        gbc.gridy++;
-
-        JTextField sectionIdField2 = new JTextField(20);
-        JTextField weightsField = new JTextField(30);
-        weightsField.setToolTipText("Format: Quiz=0.2,Mid=0.3,End=0.5");
-
-        gbc.gridx = 0; gbc.gridy = 6;
-        formCard.add(new JLabel("Section ID:"), gbc);
-        gbc.gridx = 1;
-        formCard.add(sectionIdField2, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 7;
-        formCard.add(new JLabel("Weights:"), gbc);
-        gbc.gridx = 1;
-        formCard.add(weightsField, gbc);
-
-        JButton computeButton = new JButton("Compute Final Grades");
-        stylePrimaryAction(computeButton);
-        computeButton.addActionListener(e -> {
-            String sectionId = sectionIdField2.getText().trim();
-            String weights = weightsField.getText().trim();
-            if (sectionId.isEmpty() || weights.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Please fill all fields.");
+        JButton editButton = new JButton("Edit Selected");
+        styleSecondaryAction(editButton);
+        editButton.addActionListener(e -> {
+            int row = componentTable.getSelectedRow();
+            if (row < 0) {
+                JOptionPane.showMessageDialog(this, "Select a component to edit.");
                 return;
             }
-            Map<String, Double> parsed = parseKeyValuePairs(weights);
-            var result = instructorService.computeFinalGrades(instructorId, sectionId, parsed);
-            JOptionPane.showMessageDialog(this, result.getMessage().orElse("Done"));
-            if (result.isSuccess()) {
-                sectionIdField2.setText("");
-                weightsField.setText("");
+            GradeComponent existing = new GradeComponent(
+                    gradeComponentsModel.getValueAt(row, 0).toString(),
+                    Double.parseDouble(gradeComponentsModel.getValueAt(row, 1).toString()),
+                    Double.parseDouble(gradeComponentsModel.getValueAt(row, 2).toString())
+            );
+            GradeComponent updated = promptForComponent(existing);
+            if (updated != null) {
+                gradeComponentsModel.setValueAt(updated.getName(), row, 0);
+                gradeComponentsModel.setValueAt(updated.getScore(), row, 1);
+                gradeComponentsModel.setValueAt(updated.getWeight(), row, 2);
+                updateComponentSummaries(weightSummary, previewSummary);
             }
         });
 
-        gbc.gridx = 0; gbc.gridy = 8;
-        gbc.gridwidth = 2;
-        gbc.anchor = GridBagConstraints.CENTER;
-        formCard.add(computeButton, gbc);
+        JButton deleteButton = new JButton("Delete Selected");
+        styleGhostButton(deleteButton);
+        deleteButton.addActionListener(e -> {
+            int row = componentTable.getSelectedRow();
+            if (row < 0) {
+                JOptionPane.showMessageDialog(this, "Select a component to delete.");
+                return;
+            }
+            gradeComponentsModel.removeRow(row);
+            updateComponentSummaries(weightSummary, previewSummary);
+        });
 
-        content.add(createThemeBar(), BorderLayout.NORTH);
-        content.add(header, BorderLayout.NORTH);
-        content.add(formCard, BorderLayout.CENTER);
+        JButton saveButton = new JButton("Save Gradebook");
+        stylePrimaryAction(saveButton);
+        saveButton.addActionListener(e -> {
+            SectionOption section = (SectionOption) sectionCombo.getSelectedItem();
+            EnrollmentOption enrollment = (EnrollmentOption) enrollmentCombo.getSelectedItem();
+            if (section == null || enrollment == null) {
+                JOptionPane.showMessageDialog(this, "Select both section and enrollment.");
+                return;
+            }
+            List<GradeComponent> components = collectComponentsFromTable();
+            var result = instructorService.saveGradeComponents(instructorId, section.id(), enrollment.id(), components);
+            JOptionPane.showMessageDialog(this, result.getMessage().orElse(result.isSuccess() ? "Gradebook saved." : "Failed to save gradebook."));
+            if (result.isSuccess()) {
+                loadGradeComponents(section.id(), enrollment.id(), weightSummary, previewSummary);
+            }
+        });
 
-        panel.add(nav, BorderLayout.WEST);
-        panel.add(content, BorderLayout.CENTER);
-        return panel;
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        actions.setOpaque(false);
+        actions.setBorder(BorderFactory.createEmptyBorder(16, 0, 0, 0));
+        actions.add(addButton);
+        actions.add(editButton);
+        actions.add(deleteButton);
+        actions.add(saveButton);
+
+        sectionCombo.addActionListener(e -> {
+            SectionOption selected = (SectionOption) sectionCombo.getSelectedItem();
+            populateEnrollmentOptions(selected == null ? null : selected.id(), enrollmentOptions);
+            EnrollmentOption enrollment = enrollmentOptions.getSize() > 0 ? enrollmentOptions.getElementAt(0) : null;
+            if (selected != null && enrollment != null) {
+                enrollmentCombo.setSelectedItem(enrollment);
+                loadGradeComponents(selected.id(), enrollment.id(), weightSummary, previewSummary);
+            } else {
+                clearGradeComponents(weightSummary, previewSummary);
+            }
+        });
+
+        enrollmentCombo.addActionListener(e -> {
+            SectionOption section = (SectionOption) sectionCombo.getSelectedItem();
+            EnrollmentOption enrollment = (EnrollmentOption) enrollmentCombo.getSelectedItem();
+            if (section != null && enrollment != null) {
+                loadGradeComponents(section.id(), enrollment.id(), weightSummary, previewSummary);
+            }
+        });
+
+        SectionOption initialSection = sectionOptions.getSize() > 0 ? sectionOptions.getElementAt(0) : null;
+        if (initialSection != null) {
+            populateEnrollmentOptions(initialSection.id(), enrollmentOptions);
+            if (enrollmentOptions.getSize() > 0) {
+                enrollmentCombo.setSelectedIndex(0);
+                loadGradeComponents(initialSection.id(), enrollmentOptions.getElementAt(0).id(), weightSummary, previewSummary);
+            }
+        }
+
+        JPanel wrapper = new JPanel(new BorderLayout(16, 0));
+        wrapper.setOpaque(false);
+        wrapper.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
+        wrapper.add(selectorCard, BorderLayout.WEST);
+        wrapper.add(tableCard, BorderLayout.CENTER);
+
+        JPanel body = new JPanel(new BorderLayout());
+        body.setOpaque(false);
+        body.add(wrapper, BorderLayout.CENTER);
+        body.add(actions, BorderLayout.SOUTH);
+
+        return createPageLayout(tabs, "Grade Entry", "Design components and ensure weights sum to 1.0 before saving.", body);
     }
 
     private JPanel createPageLayout(JTabbedPane tabs, String title, String subtitle, JComponent body) {
@@ -535,41 +609,27 @@ public final class InstructorDashboardFrame extends JFrame {
     private JPanel createNavigationColumn(JTabbedPane tabs) {
         JPanel nav = new JPanel();
         nav.setBackground(theme.navBackground());
-        nav.setPreferredSize(new Dimension(80, 0));
+        nav.setPreferredSize(new Dimension(200, 0));
         nav.setLayout(new BoxLayout(nav, BoxLayout.Y_AXIS));
-        nav.setBorder(BorderFactory.createEmptyBorder(16, 12, 16, 12));
+        nav.setBorder(BorderFactory.createEmptyBorder(24, 16, 24, 16));
 
-        JButton hamburger = new JButton("\u2630");
-        hamburger.setAlignmentX(0.5f);
-        hamburger.setFocusPainted(false);
-        hamburger.setBackground(BRAND_PRIMARY);
-        hamburger.setForeground(Color.WHITE);
-        hamburger.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        JLabel label = new JLabel("Navigate");
+        label.setForeground(theme.textPrimary());
+        label.setFont(label.getFont().deriveFont(Font.BOLD, 14f));
+        label.setAlignmentX(0f);
 
-        JPanel menuLinks = new JPanel();
-        menuLinks.setOpaque(false);
-        menuLinks.setLayout(new BoxLayout(menuLinks, BoxLayout.Y_AXIS));
-        menuLinks.add(Box.createVerticalStrut(16));
-        menuLinks.add(createNavLink("Home", tabs, 0));
-        menuLinks.add(Box.createVerticalStrut(8));
-        menuLinks.add(createNavLink("Sections", tabs, 1));
-        menuLinks.add(Box.createVerticalStrut(8));
-        menuLinks.add(createNavLink("Students", tabs, 2));
-        menuLinks.add(Box.createVerticalStrut(8));
-        menuLinks.add(createNavLink("Grades", tabs, 3));
-        menuLinks.add(Box.createVerticalGlue());
-        menuLinks.setVisible(false);
-
-        hamburger.addActionListener(e -> {
-            boolean show = !menuLinks.isVisible();
-            menuLinks.setVisible(show);
-            hamburger.setText(show ? "\u2715" : "\u2630");
-            nav.revalidate();
-            nav.repaint();
-        });
-
-        nav.add(hamburger);
-        nav.add(menuLinks);
+        nav.add(label);
+        nav.add(Box.createVerticalStrut(16));
+        nav.add(createNavLink("Home", tabs, 0));
+        nav.add(Box.createVerticalStrut(8));
+        nav.add(createNavLink("Sections", tabs, 1));
+        nav.add(Box.createVerticalStrut(8));
+        nav.add(createNavLink("Students", tabs, 2));
+        nav.add(Box.createVerticalStrut(8));
+        nav.add(createNavLink("Class Stats", tabs, 3));
+        nav.add(Box.createVerticalStrut(8));
+        nav.add(createNavLink("Grade Entry", tabs, 4));
+        nav.add(Box.createVerticalGlue());
         return nav;
     }
 
@@ -655,6 +715,13 @@ public final class InstructorDashboardFrame extends JFrame {
         ));
     }
 
+    private void styleGhostButton(JButton button) {
+        button.setFocusPainted(false);
+        button.setContentAreaFilled(false);
+        button.setForeground(theme.textSecondary());
+        button.setBorder(BorderFactory.createEmptyBorder(10, 12, 10, 12));
+    }
+
     private JButton createNavLink(String text, JTabbedPane tabs, int tabIndex) {
         JButton button = new JButton(text);
         button.setAlignmentX(0f);
@@ -706,6 +773,164 @@ public final class InstructorDashboardFrame extends JFrame {
         }
     }
 
+    private void loadClassStats() {
+        classStatsModel.setRowCount(0);
+        var result = instructorService.listMySections(instructorId);
+        if (!result.isSuccess()) {
+            JOptionPane.showMessageDialog(this, result.getMessage().orElse("Unable to load stats."));
+            return;
+        }
+        for (String sectionId : result.getPayload().orElse(List.of())) {
+            erpRepository.findSection(sectionId).ifPresent(section -> {
+                int enrolled = erpRepository.findEnrollmentsBySection(sectionId).size();
+                int capacity = section.getCapacity();
+                int seatsLeft = Math.max(0, capacity - enrolled);
+                double fill = capacity == 0 ? 0 : (double) enrolled / capacity;
+                double avg = calculateAverageFinal(sectionId);
+                String courseCode = erpRepository.findCourse(section.getCourseId())
+                        .map(Course::getCode)
+                        .orElse("Unknown");
+                classStatsModel.addRow(new Object[] {
+                        sectionId,
+                        courseCode,
+                        enrolled,
+                        capacity,
+                        seatsLeft,
+                        String.format("%.0f%%", fill * 100),
+                        avg < 0 ? "-" : String.format("%.1f", avg),
+                        section.getRegistrationDeadline()
+                });
+            });
+        }
+    }
+
+    private void populateSectionOptions(DefaultComboBoxModel<SectionOption> model) {
+        model.removeAllElements();
+        var sections = instructorService.listMySections(instructorId);
+        if (!sections.isSuccess()) {
+            JOptionPane.showMessageDialog(this, sections.getMessage().orElse("Unable to load sections."));
+            return;
+        }
+        for (String sectionId : sections.getPayload().orElse(List.of())) {
+            String label = erpRepository.findSection(sectionId)
+                    .flatMap(section -> erpRepository.findCourse(section.getCourseId())
+                            .map(course -> course.getCode() + " • " + sectionId))
+                    .orElse(sectionId);
+            model.addElement(new SectionOption(sectionId, label));
+        }
+    }
+
+    private void populateEnrollmentOptions(String sectionId, DefaultComboBoxModel<EnrollmentOption> model) {
+        model.removeAllElements();
+        if (sectionId == null) {
+            return;
+        }
+        for (Enrollment enrollment : erpRepository.findEnrollmentsBySection(sectionId)) {
+            String label = erpRepository.findStudent(enrollment.getStudentId())
+                    .map(student -> student.getRollNumber() + " • " + enrollment.getEnrollmentId())
+                    .orElse("Enrollment " + enrollment.getEnrollmentId());
+            model.addElement(new EnrollmentOption(enrollment.getEnrollmentId(), label));
+        }
+    }
+
+    private void loadGradeComponents(String sectionId,
+                                     String enrollmentId,
+                                     JLabel weightLabel,
+                                     JLabel previewLabel) {
+        gradeComponentsModel.setRowCount(0);
+        if (sectionId == null || enrollmentId == null) {
+            updateComponentSummaries(weightLabel, previewLabel);
+            return;
+        }
+        var result = instructorService.listGradeComponents(instructorId, sectionId, enrollmentId);
+        if (!result.isSuccess()) {
+            JOptionPane.showMessageDialog(this, result.getMessage().orElse("Unable to load gradebook."));
+            return;
+        }
+        for (GradeComponent component : result.getPayload().orElse(List.of())) {
+            gradeComponentsModel.addRow(new Object[] {
+                    component.getName(),
+                    component.getScore(),
+                    component.getWeight()
+            });
+        }
+        updateComponentSummaries(weightLabel, previewLabel);
+    }
+
+    private void clearGradeComponents(JLabel weightLabel, JLabel previewLabel) {
+        gradeComponentsModel.setRowCount(0);
+        updateComponentSummaries(weightLabel, previewLabel);
+    }
+
+    private void updateComponentSummaries(JLabel weightLabel, JLabel previewLabel) {
+        double totalWeight = 0;
+        double previewGrade = 0;
+        for (int i = 0; i < gradeComponentsModel.getRowCount(); i++) {
+            double score = Double.parseDouble(gradeComponentsModel.getValueAt(i, 1).toString());
+            double weight = Double.parseDouble(gradeComponentsModel.getValueAt(i, 2).toString());
+            totalWeight += weight;
+            previewGrade += score * weight;
+        }
+        weightLabel.setText(String.format("Total Weight: %.2f", totalWeight));
+        previewLabel.setText(gradeComponentsModel.getRowCount() == 0
+                ? "Preview Final: -"
+                : String.format("Preview Final: %.1f", previewGrade));
+    }
+
+    private List<GradeComponent> collectComponentsFromTable() {
+        List<GradeComponent> components = new ArrayList<>();
+        for (int i = 0; i < gradeComponentsModel.getRowCount(); i++) {
+            components.add(new GradeComponent(
+                    gradeComponentsModel.getValueAt(i, 0).toString(),
+                    Double.parseDouble(gradeComponentsModel.getValueAt(i, 1).toString()),
+                    Double.parseDouble(gradeComponentsModel.getValueAt(i, 2).toString())
+            ));
+        }
+        return components;
+    }
+
+    private GradeComponent promptForComponent(GradeComponent existing) {
+        JTextField nameField = new JTextField(existing == null ? "" : existing.getName(), 20);
+        JTextField scoreField = new JTextField(existing == null ? "" : String.valueOf(existing.getScore()), 10);
+        JTextField weightField = new JTextField(existing == null ? "" : String.valueOf(existing.getWeight()), 10);
+        Object[] message = {
+                "Name:", nameField,
+                "Score (0-100):", scoreField,
+                "Weight (0-1):", weightField
+        };
+        int option = JOptionPane.showConfirmDialog(
+                this,
+                message,
+                existing == null ? "Add Component" : "Edit Component",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE
+        );
+        if (option != JOptionPane.OK_OPTION) {
+            return null;
+        }
+        try {
+            String name = nameField.getText().trim();
+            double score = Double.parseDouble(scoreField.getText().trim());
+            double weight = Double.parseDouble(weightField.getText().trim());
+            if (name.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Name cannot be empty.");
+                return null;
+            }
+            if (score < 0 || score > 100) {
+                JOptionPane.showMessageDialog(this, "Score must be between 0 and 100.");
+                return null;
+            }
+            if (weight <= 0 || weight > 1) {
+                JOptionPane.showMessageDialog(this, "Weight must be greater than 0 and at most 1.");
+                return null;
+            }
+            return new GradeComponent(name, score, weight);
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Please enter valid numeric values.");
+            return null;
+        }
+    }
+
     private void showGradesForSection(String sectionId) {
         var result = instructorService.viewGradesForSection(instructorId, sectionId);
         if (!result.isSuccess()) {
@@ -732,6 +957,22 @@ public final class InstructorDashboardFrame extends JFrame {
         }
         builder.append("\nFinal Grade: ").append(view.finalGrade() == null ? "-" : view.finalGrade());
         JOptionPane.showMessageDialog(this, builder.toString(), "Grades", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private double calculateAverageFinal(String sectionId) {
+        List<Enrollment> enrollments = erpRepository.findEnrollmentsBySection(sectionId);
+        double sum = 0;
+        int counted = 0;
+        for (Enrollment enrollment : enrollments) {
+            var grade = erpRepository.findGradeBook(enrollment.getEnrollmentId())
+                    .flatMap(GradeBook::getFinalGrade)
+                    .orElse(null);
+            if (grade != null) {
+                sum += grade;
+                counted++;
+            }
+        }
+        return counted == 0 ? -1 : sum / counted;
     }
 
     private void showChangePasswordDialog() {
@@ -787,24 +1028,6 @@ public final class InstructorDashboardFrame extends JFrame {
         }
     }
 
-    private Map<String, Double> parseKeyValuePairs(String input) {
-        Map<String, Double> map = new HashMap<>();
-        if (input == null || input.isBlank()) {
-            return map;
-        }
-        String[] parts = input.split(",");
-        for (String part : parts) {
-            String[] tokens = part.split("=");
-            if (tokens.length == 2) {
-                try {
-                    map.put(tokens[0].trim(), Double.parseDouble(tokens[1].trim()));
-                } catch (NumberFormatException ignored) {
-                }
-            }
-        }
-        return map;
-    }
-
     private void refreshAll() {
         loadSections();
         var maintenance = ServiceLocator.maintenanceService().isMaintenanceOn();
@@ -832,5 +1055,19 @@ public final class InstructorDashboardFrame extends JFrame {
             Color chromeBackground,
             Color chromeBorder
     ) {
+    }
+
+    private record SectionOption(String id, String label) {
+        @Override
+        public String toString() {
+            return label;
+        }
+    }
+
+    private record EnrollmentOption(String id, String label) {
+        @Override
+        public String toString() {
+            return label;
+        }
     }
 }

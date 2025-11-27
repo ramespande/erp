@@ -1,6 +1,8 @@
 package edu.univ.erp;
 
 import edu.univ.erp.infra.DataSourceConfig;
+import edu.univ.erp.infra.DemoCatalogSeeder;
+import edu.univ.erp.infra.ServiceLocator;
 import edu.univ.erp.ui.auth.LoginFrame;
 import edu.univ.erp.ui.common.SwingTheme;
 
@@ -22,6 +24,7 @@ public final class Application {
 
         SwingUtilities.invokeLater(() -> {
             SwingTheme.apply();
+            DemoCatalogSeeder.ensureBaselineCatalog(ServiceLocator.erpRepository());
             new LoginFrame().setVisible(true);
         });
     }

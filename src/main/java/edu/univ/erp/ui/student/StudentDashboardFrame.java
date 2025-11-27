@@ -35,6 +35,7 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.GridLayout;
 import java.awt.RenderingHints;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -112,7 +113,20 @@ public final class StudentDashboardFrame extends JFrame {
 
     private final DefaultTableModel catalogModel = new DefaultTableModel(new Object[] {
             "Section ID", "Course", "Title", "Credits", "Instructor", "Schedule", "Capacity", "Taken"
-    }, 0);
+    }, 0) {
+        @Override
+        public boolean isCellEditable(int row, int column) {
+            return false;
+        }
+    };
+    private final DefaultTableModel registrationsModel = new DefaultTableModel(new Object[] {
+            "Section", "Course", "Day", "Time", "Room"
+    }, 0) {
+        @Override
+        public boolean isCellEditable(int row, int column) {
+            return false;
+        }
+    };
     private final TimetableGrid timetableGrid = new TimetableGrid();
     private final GradeDeckPanel gradeDeck = new GradeDeckPanel();
     private final JTabbedPane tabs = new JTabbedPane();
@@ -150,11 +164,12 @@ public final class StudentDashboardFrame extends JFrame {
         
         // Refresh catalog when tab is selected
         tabs.addChangeListener(e -> {
-            if (tabs.getSelectedIndex() == 1) { // Catalog tab
+            int index = tabs.getSelectedIndex();
+            if (index == 1) {
                 loadCatalog();
-            } else if (tabs.getSelectedIndex() == 2) { // Timetable tab
-                loadTimetable();
-            } else if (tabs.getSelectedIndex() == 3) { // Grades tab
+            } else if (index == 2) {
+                loadScheduleData();
+            } else if (index == 3) {
                 loadGrades();
             }
         });
@@ -252,15 +267,31 @@ public final class StudentDashboardFrame extends JFrame {
         actions.add(registerButton);
 
         JPanel tableCard = createCardPanel();
+        tableCard.add(new JLabel("Course Catalog", SwingConstants.CENTER), BorderLayout.NORTH);
         tableCard.add(scrollPane, BorderLayout.CENTER);
         tableCard.add(actions, BorderLayout.SOUTH);
+
+        JTable registrationsTable = new JTable(registrationsModel);
+        styleDataTable(registrationsTable);
+        registrationsTable.setAutoCreateRowSorter(false);
+        JScrollPane registrationsScrollPane = createTableScrollPane(registrationsTable);
+
+        JPanel registrationsCard = createCardPanel();
+        registrationsCard.add(new JLabel("My Registrations", SwingConstants.CENTER), BorderLayout.NORTH);
+        registrationsCard.add(registrationsScrollPane, BorderLayout.CENTER);
 
         JPanel body = new JPanel(new BorderLayout());
         body.setOpaque(false);
         JPanel wrapper = new JPanel(new BorderLayout());
         wrapper.setOpaque(false);
         wrapper.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
-        wrapper.add(tableCard, BorderLayout.CENTER);
+
+        JPanel cardsPanel = new JPanel(new GridLayout(1, 2, 16, 0));
+        cardsPanel.setOpaque(false);
+        cardsPanel.add(tableCard);
+        cardsPanel.add(registrationsCard);
+
+        wrapper.add(cardsPanel, BorderLayout.CENTER);
         body.add(wrapper, BorderLayout.CENTER);
 
         return createPageLayout(
@@ -390,41 +421,25 @@ public final class StudentDashboardFrame extends JFrame {
     private JPanel createNavigationColumn(JTabbedPane tabs) {
         JPanel nav = new JPanel();
         nav.setBackground(theme.navBackground());
-        nav.setPreferredSize(new Dimension(80, 0));
+        nav.setPreferredSize(new Dimension(200, 0));
         nav.setLayout(new BoxLayout(nav, BoxLayout.Y_AXIS));
-        nav.setBorder(BorderFactory.createEmptyBorder(16, 12, 16, 12));
+        nav.setBorder(BorderFactory.createEmptyBorder(24, 16, 24, 16));
 
-        JButton hamburger = new JButton("\u2630");
-        hamburger.setAlignmentX(0.5f);
-        hamburger.setFocusPainted(false);
-        hamburger.setBackground(BRAND_PRIMARY);
-        hamburger.setForeground(Color.WHITE);
-        hamburger.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        JLabel label = new JLabel("Navigate");
+        label.setForeground(theme.textPrimary());
+        label.setFont(label.getFont().deriveFont(Font.BOLD, 14f));
+        label.setAlignmentX(0f);
 
-        JPanel menuLinks = new JPanel();
-        menuLinks.setOpaque(false);
-        menuLinks.setLayout(new BoxLayout(menuLinks, BoxLayout.Y_AXIS));
-        menuLinks.add(Box.createVerticalStrut(16));
-        menuLinks.add(createNavLink("Home", tabs, 0));
-        menuLinks.add(Box.createVerticalStrut(8));
-        menuLinks.add(createNavLink("Catalog", tabs, 1));
-        menuLinks.add(Box.createVerticalStrut(8));
-        menuLinks.add(createNavLink("Timetable", tabs, 2));
-        menuLinks.add(Box.createVerticalStrut(8));
-        menuLinks.add(createNavLink("Grades", tabs, 3));
-        menuLinks.add(Box.createVerticalGlue());
-        menuLinks.setVisible(false);
-
-        hamburger.addActionListener(e -> {
-            boolean show = !menuLinks.isVisible();
-            menuLinks.setVisible(show);
-            hamburger.setText(show ? "\u2715" : "\u2630");
-            nav.revalidate();
-            nav.repaint();
-        });
-
-        nav.add(hamburger);
-        nav.add(menuLinks);
+        nav.add(label);
+        nav.add(Box.createVerticalStrut(16));
+        nav.add(createNavLink("Home", tabs, 0));
+        nav.add(Box.createVerticalStrut(8));
+        nav.add(createNavLink("Catalog", tabs, 1));
+        nav.add(Box.createVerticalStrut(8));
+        nav.add(createNavLink("Timetable", tabs, 2));
+        nav.add(Box.createVerticalStrut(8));
+        nav.add(createNavLink("Grades", tabs, 3));
+        nav.add(Box.createVerticalGlue());
         return nav;
     }
 
@@ -954,7 +969,7 @@ public final class StudentDashboardFrame extends JFrame {
 
     private void refreshAll() {
         loadCatalog();
-        loadTimetable();
+        loadScheduleData();
         loadGrades();
         var maintenance = ServiceLocator.maintenanceService().isMaintenanceOn();
         maintenanceLabel.setText(maintenance ? "Maintenance Mode ON — read-only operations." : "");
@@ -982,13 +997,26 @@ public final class StudentDashboardFrame extends JFrame {
         }
     }
 
-    private void loadTimetable() {
+    private void loadScheduleData() {
         var result = studentService.viewTimetable(studentId);
-        if (!result.isSuccess()) {
-            timetableGrid.setEntries(List.of());
-            return;
+        List<TimetableEntry> entries = result.isSuccess()
+                ? result.getPayload().orElse(List.of())
+                : List.of();
+        timetableGrid.setEntries(entries);
+        populateRegistrations(entries);
+    }
+
+    private void populateRegistrations(List<TimetableEntry> entries) {
+        registrationsModel.setRowCount(0);
+        for (TimetableEntry entry : entries) {
+            registrationsModel.addRow(new Object[]{
+                    entry.sectionId(),
+                    entry.courseCode(),
+                    prettyDayLabel(entry.day()),
+                    entry.timeRange(),
+                    entry.room()
+            });
         }
-        timetableGrid.setEntries(result.getPayload().orElse(List.of()));
     }
 
     private void loadGrades() {
