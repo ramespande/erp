@@ -696,8 +696,7 @@ public final class AdminDashboardFrame extends JFrame {
         restoreButton.addActionListener(e -> performRestore());
         gbc.gridy = 29;
         formCard.add(restoreButton, gbc);
-
-        content.add(createThemeBar(), BorderLayout.NORTH);
+        
         content.add(header, BorderLayout.NORTH);
         JScrollPane scrollPane = new JScrollPane(formCard);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());

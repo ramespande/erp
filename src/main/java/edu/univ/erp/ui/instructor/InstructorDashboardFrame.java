@@ -30,6 +30,7 @@ import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableModel;
@@ -361,24 +362,36 @@ public final class InstructorDashboardFrame extends JFrame {
         DefaultComboBoxModel<EnrollmentOption> enrollmentOptions = new DefaultComboBoxModel<>();
         JComboBox<EnrollmentOption> enrollmentCombo = new JComboBox<>(enrollmentOptions);
 
-        JPanel selectorCard = createCardPanel();
-        selectorCard.setLayout(new GridBagLayout());
-        selectorCard.setPreferredSize(new Dimension(260, 0));
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new java.awt.Insets(10, 10, 10, 10);
-        gbc.anchor = GridBagConstraints.WEST;
-
-        gbc.gridx = 0; gbc.gridy = 0;
-        selectorCard.add(new JLabel("Section"), gbc);
-        gbc.gridy++;
         sectionCombo.setPreferredSize(new Dimension(220, 28));
-        selectorCard.add(sectionCombo, gbc);
-
-        gbc.gridy++;
-        selectorCard.add(new JLabel("Enrollment"), gbc);
-        gbc.gridy++;
         enrollmentCombo.setPreferredSize(new Dimension(220, 28));
-        selectorCard.add(enrollmentCombo, gbc);
+
+        JPanel selectorRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 4));
+        selectorRow.setOpaque(false);
+        JLabel sectionLabel = new JLabel("Section:");
+        sectionLabel.setForeground(theme.textPrimary());
+        selectorRow.add(sectionLabel);
+        selectorRow.add(sectionCombo);
+        selectorRow.add(Box.createHorizontalStrut(12));
+        JLabel enrollmentLabel = new JLabel("Student:");
+        enrollmentLabel.setForeground(theme.textPrimary());
+        selectorRow.add(enrollmentLabel);
+        selectorRow.add(enrollmentCombo);
+
+        JTextArea guidance = new JTextArea("""
+                Pick a section and student, then add, edit, or delete grade components.
+                Weights must total 1.0 before saving. Preview shows the calculated final grade.
+                """);
+        guidance.setWrapStyleWord(true);
+        guidance.setLineWrap(true);
+        guidance.setOpaque(false);
+        guidance.setEditable(false);
+        guidance.setForeground(theme.textSecondary());
+        guidance.setBorder(BorderFactory.createEmptyBorder(4, 4, 0, 4));
+
+        JPanel selectorCard = createCardPanel();
+        selectorCard.setLayout(new BorderLayout(0, 8));
+        selectorCard.add(selectorRow, BorderLayout.NORTH);
+        selectorCard.add(guidance, BorderLayout.CENTER);
 
         JTable componentTable = new JTable(gradeComponentsModel);
         styleDataTable(componentTable);
@@ -497,15 +510,14 @@ public final class InstructorDashboardFrame extends JFrame {
             }
         }
 
-        JPanel wrapper = new JPanel(new BorderLayout(16, 0));
-        wrapper.setOpaque(false);
-        wrapper.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
-        wrapper.add(selectorCard, BorderLayout.WEST);
-        wrapper.add(tableCard, BorderLayout.CENTER);
+        JPanel centerStack = new JPanel(new BorderLayout(0, 16));
+        centerStack.setOpaque(false);
+        centerStack.add(selectorCard, BorderLayout.NORTH);
+        centerStack.add(tableCard, BorderLayout.CENTER);
 
         JPanel body = new JPanel(new BorderLayout());
         body.setOpaque(false);
-        body.add(wrapper, BorderLayout.CENTER);
+        body.add(centerStack, BorderLayout.CENTER);
         body.add(actions, BorderLayout.SOUTH);
 
         return createPageLayout(tabs, "Grade Entry", "Design components and ensure weights sum to 1.0 before saving.", body);
