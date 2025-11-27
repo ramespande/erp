@@ -173,6 +173,35 @@ public final class DefaultInstructorService implements InstructorService {
         return OperationResult.success(null, "Grade book saved.");
     }
 
+    @Override
+    public OperationResult<Void> saveGradeComponentsWithFinal(String instructorId,
+                                                              String sectionId,
+                                                              String enrollmentId,
+                                                              List<GradeComponent> components,
+                                                              double finalGrade) {
+        if (!accessController.canInstructorWrite()) {
+            return OperationResult.failure("Maintenance mode ON. Grade entry disabled.");
+        }
+        Optional<Section> section = ensureOwnership(instructorId, sectionId);
+        if (section.isEmpty()) {
+            return OperationResult.failure("Not your section.");
+        }
+        Optional<Enrollment> enrollment = findEnrollment(sectionId, enrollmentId);
+        if (enrollment.isEmpty()) {
+            return OperationResult.failure("Enrollment does not belong to section.");
+        }
+        List<GradeComponent> sanitized = components == null ? List.of() : components;
+        // Validate scores are in range
+        for (GradeComponent component : sanitized) {
+            if (component.getScore() < 0 || component.getScore() > 100) {
+                return OperationResult.failure("Scores must be between 0 and 100.");
+            }
+        }
+        GradeBook gradeBook = new GradeBook(enrollmentId, new ArrayList<>(sanitized), finalGrade);
+        erpRepository.saveGradeBook(gradeBook);
+        return OperationResult.success(null, "Grades submitted successfully.");
+    }
+
     private Optional<Section> ensureOwnership(String instructorId, String sectionId) {
         return erpRepository.findSection(sectionId)
                 .filter(section -> section.getInstructorId().equals(instructorId));

@@ -19,6 +19,8 @@ public final class Section implements Serializable {
     private final int semester;
     private final int year;
     private final LocalDate registrationDeadline;
+    private final String weightingRule;
+    private final String componentNames;
 
     public Section(String sectionId,
                    String courseId,
@@ -30,7 +32,9 @@ public final class Section implements Serializable {
                    int capacity,
                    int semester,
                    int year,
-                   LocalDate registrationDeadline) {
+                   LocalDate registrationDeadline,
+                   String weightingRule,
+                   String componentNames) {
         this.sectionId = sectionId;
         this.courseId = courseId;
         this.instructorId = instructorId;
@@ -42,6 +46,8 @@ public final class Section implements Serializable {
         this.semester = semester;
         this.year = year;
         this.registrationDeadline = registrationDeadline;
+        this.weightingRule = weightingRule;
+        this.componentNames = componentNames;
     }
 
     public String getSectionId() {
@@ -86,6 +92,14 @@ public final class Section implements Serializable {
 
     public LocalDate getRegistrationDeadline() {
         return registrationDeadline;
+    }
+
+    public String getWeightingRule() {
+        return weightingRule;
+    }
+
+    public String getComponentNames() {
+        return componentNames;
     }
 
     @Override

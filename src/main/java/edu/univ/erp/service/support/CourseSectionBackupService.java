@@ -52,7 +52,9 @@ public final class CourseSectionBackupService {
                     String.valueOf(section.getCapacity()),
                     String.valueOf(section.getSemester()),
                     String.valueOf(section.getYear()),
-                    section.getRegistrationDeadline().toString()
+                    section.getRegistrationDeadline().toString(),
+                    encode(section.getWeightingRule() != null ? section.getWeightingRule() : ""),
+                    encode(section.getComponentNames() != null ? section.getComponentNames() : "")
             ));
         }
         String payload = "# University ERP backup\n" + lines.stream().collect(Collectors.joining("\n"));
@@ -63,6 +65,25 @@ public final class CourseSectionBackupService {
         if (payload == null || payload.isBlank()) {
             return OperationResult.failure("Backup data is empty.");
         }
+        
+        // Clear all existing data before restoring (overwrite, not append)
+        try {
+            // Delete all existing sections first (to avoid foreign key constraints)
+            List<Section> existingSections = erpRepository.listSections();
+            for (Section section : existingSections) {
+                erpRepository.deleteSection(section.getSectionId());
+            }
+            
+            // Delete all existing courses
+            List<Course> existingCourses = erpRepository.listCourses();
+            for (Course course : existingCourses) {
+                erpRepository.deleteCourse(course.getCourseId());
+            }
+        } catch (Exception ex) {
+            return OperationResult.failure("Failed to clear existing data: " + ex.getMessage());
+        }
+        
+        // Now restore from backup
         List<Course> courses = new ArrayList<>();
         List<Section> sections = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new StringReader(payload))) {
@@ -80,7 +101,9 @@ public final class CourseSectionBackupService {
                             decode(parts[3]),
                             Integer.parseInt(parts[4])
                     ));
-                } else if (SECTION_PREFIX.equals(parts[0]) && parts.length == 12) {
+                } else if (SECTION_PREFIX.equals(parts[0]) && (parts.length >= 12 && parts.length <= 14)) {
+                    String weightingRule = parts.length >= 13 ? decode(parts[12]) : null;
+                    String componentNames = parts.length == 14 ? decode(parts[13]) : null;
                     sections.add(new Section(
                             decode(parts[1]),
                             decode(parts[2]),
@@ -92,13 +115,16 @@ public final class CourseSectionBackupService {
                             Integer.parseInt(parts[8]),
                             Integer.parseInt(parts[9]),
                             Integer.parseInt(parts[10]),
-                            LocalDate.parse(parts[11])
+                            LocalDate.parse(parts[11]),
+                            weightingRule,
+                            componentNames
                     ));
                 }
             }
+            // Restore courses first (sections depend on courses)
             courses.forEach(erpRepository::saveCourse);
             sections.forEach(erpRepository::saveSection);
-            return OperationResult.success(null, "Backup restored.");
+            return OperationResult.success(null, "Backup restored (overwrote existing data).");
         } catch (Exception ex) {
             return OperationResult.failure("Failed to restore backup: " + ex.getMessage());
         }

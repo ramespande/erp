@@ -30,6 +30,7 @@ import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 
 import edu.univ.erp.api.common.OperationResult;
@@ -50,8 +51,10 @@ public final class LoginFrame extends JFrame {
 
     private final JTextField usernameField = new JTextField();
     private final JPasswordField passwordField = new JPasswordField();
-    private final JLabel statusLabel = new JLabel("Enter credentials", SwingConstants.CENTER);
+    private final StatusLabel statusLabel = new StatusLabel("Enter credentials", SwingConstants.CENTER);
     private final JButton loginButton = new JButton("Login");
+    private javax.swing.Timer lockoutTimer;
+    private long lockoutSecondsRemaining = 0;
 
     public LoginFrame() {
         super("University ERP - Login");
@@ -59,6 +62,16 @@ public final class LoginFrame extends JFrame {
         setMinimumSize(new Dimension(980, 600));
         setLocationRelativeTo(null);
         setResizable(false);
+        
+        // Clean up timer when window closes
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                if (lockoutTimer != null) {
+                    lockoutTimer.stop();
+                }
+            }
+        });
 
         JLayeredPane layeredPane = new FullSizeLayeredPane();
 
@@ -180,20 +193,46 @@ public final class LoginFrame extends JFrame {
     }
 
     private void attemptLogin() {
+        // Don't allow login attempts while timer is running (still locked out)
+        if (lockoutTimer != null && lockoutTimer.isRunning()) {
+            return;
+        }
+        
         loginButton.setEnabled(false);
         OperationResult<Role> result = authService.login(usernameField.getText().trim(), new String(passwordField.getPassword()));
-        loginButton.setEnabled(true);
-
+        
         if (!result.isSuccess()) {
+            String message = result.getMessage().orElse("Invalid credentials. Try again.");
+            
+            // Check if account is locked
+            if (message.startsWith("LOCKED:")) {
+                try {
+                    lockoutSecondsRemaining = Long.parseLong(message.substring(7));
+                    startLockoutTimer();
+                    return;
+                } catch (NumberFormatException e) {
+                    // Fall through to normal error handling
+                }
+            }
+            
+            // Update status label with error message (replaces any previous message)
             statusLabel.setBackground(new Color(210, 35, 35, 30));
             statusLabel.setForeground(new Color(120, 20, 20));
-            statusLabel.setText(result.getMessage().orElse("Invalid credentials. Try again."));
+            updateStatusLabelText(message);
+            loginButton.setEnabled(true);
             return;
+        }
+
+        // Stop timer if running (successful login)
+        if (lockoutTimer != null) {
+            lockoutTimer.stop();
+            lockoutTimer = null;
         }
 
         statusLabel.setBackground(new Color(0, 158, 149, 26));
         statusLabel.setForeground(BRAND_DARK);
-        statusLabel.setText("Welcome back! Redirecting …");
+        updateStatusLabelText("Welcome back! Redirecting …");
+        loginButton.setEnabled(true);
 
         Role role = result.getPayload().orElse(Role.STUDENT);
         dispose();
@@ -202,6 +241,139 @@ public final class LoginFrame extends JFrame {
             case INSTRUCTOR -> new InstructorDashboardFrame().setVisible(true);
             case STUDENT -> new StudentDashboardFrame(ServiceLocator.sessionContext().getUserId()).setVisible(true);
             default -> JOptionPane.showMessageDialog(this, "Unsupported role: " + role);
+        }
+    }
+    
+    private void startLockoutTimer() {
+        // Stop existing timer if any
+        if (lockoutTimer != null) {
+            lockoutTimer.stop();
+        }
+        
+        // Disable login button and fields
+        loginButton.setEnabled(false);
+        usernameField.setEnabled(false);
+        passwordField.setEnabled(false);
+        
+        // Update status label
+        statusLabel.setBackground(new Color(210, 35, 35, 30));
+        statusLabel.setForeground(new Color(120, 20, 20));
+        updateLockoutStatus();
+        
+        // Create timer that updates every second
+        lockoutTimer = new javax.swing.Timer(1000, e -> {
+            lockoutSecondsRemaining--;
+            if (lockoutSecondsRemaining <= 0) {
+                lockoutTimer.stop();
+                lockoutSecondsRemaining = 0;
+                // Re-enable login
+                loginButton.setEnabled(true);
+                usernameField.setEnabled(true);
+                passwordField.setEnabled(true);
+                statusLabel.setBackground(new Color(0, 158, 149, 35));
+                statusLabel.setForeground(BRAND_DARK);
+                updateStatusLabelText("Account unlocked. You can try logging in again.");
+            } else {
+                updateLockoutStatus();
+            }
+        });
+        lockoutTimer.setRepeats(true);
+        lockoutTimer.start();
+    }
+    
+    /**
+     * Updates the status label text, ensuring the old text is completely cleared
+     * and repainted before the new text is set to prevent visual overlap.
+     */
+    private void updateStatusLabelText(String newText) {
+        statusLabel.updateText(newText);
+    }
+    
+    /**
+     * Custom JLabel that ensures clean text updates by completely controlling
+     * the rendering process to prevent visual overlap.
+     */
+    private static final class StatusLabel extends JLabel {
+        private volatile String displayText = "";
+        
+        private StatusLabel(String text, int alignment) {
+            super(text, alignment);
+            setOpaque(true);
+            this.displayText = text != null ? text : "";
+        }
+        
+        @Override
+        public void setText(String text) {
+            displayText = text != null ? text : "";
+            super.setText(text);
+        }
+        
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            try {
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                
+                // Step 1: ALWAYS fill the entire background first to clear ANY old text
+                g2.setColor(getBackground());
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                
+                // Step 2: Only paint the current text (not any cached/old text)
+                if (displayText != null && !displayText.isEmpty()) {
+                    g2.setColor(getForeground());
+                    g2.setFont(getFont());
+                    
+                    // Calculate text position based on alignment
+                    java.awt.FontMetrics fm = g2.getFontMetrics();
+                    int textWidth = fm.stringWidth(displayText);
+                    int textHeight = fm.getHeight();
+                    int x = 0;
+                    int y = (getHeight() - textHeight) / 2 + fm.getAscent();
+                    
+                    if (getHorizontalAlignment() == SwingConstants.CENTER) {
+                        x = (getWidth() - textWidth) / 2;
+                    } else if (getHorizontalAlignment() == SwingConstants.RIGHT) {
+                        x = getWidth() - textWidth - getInsets().right;
+                    } else {
+                        x = getInsets().left;
+                    }
+                    
+                    // Draw ONLY the current text
+                    g2.drawString(displayText, x, y);
+                }
+            } finally {
+                g2.dispose();
+            }
+        }
+        
+        /**
+         * Updates the text with a clean transition that prevents overlap.
+         * This method ensures the old text is completely gone before new text appears.
+         */
+        void updateText(String newText) {
+            // Update the display text atomically
+            displayText = newText != null ? newText : "";
+            
+            // Update the super text (for layout calculations)
+            super.setText(displayText);
+            
+            // Force immediate repaint - our paintComponent will handle the clean rendering
+            if (isShowing()) {
+                repaint();
+                // Also repaint parent to ensure no artifacts
+                if (getParent() != null) {
+                    java.awt.Rectangle bounds = getBounds();
+                    getParent().repaint(bounds.x, bounds.y, bounds.width, bounds.height);
+                }
+            }
+        }
+    }
+    
+    private void updateLockoutStatus() {
+        if (lockoutSecondsRemaining > 0) {
+            String message = String.format("Account locked. Please try again in %d second(s).", lockoutSecondsRemaining);
+            updateStatusLabelText(message);
         }
     }
 
@@ -280,7 +452,10 @@ public final class LoginFrame extends JFrame {
         @Override
         public void keyPressed(KeyEvent e) {
             if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-                attemptLogin();
+                // Only allow login if not locked out
+                if (lockoutTimer == null || !lockoutTimer.isRunning()) {
+                    attemptLogin();
+                }
             }
         }
 

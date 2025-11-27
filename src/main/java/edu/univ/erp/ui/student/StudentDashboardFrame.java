@@ -183,8 +183,8 @@ public final class StudentDashboardFrame extends JFrame {
             refreshAll();
         });
 
-        JButton dropButton = new JButton("Drop Section…");
-        styleGhostButton(dropButton);
+        JButton dropButton = new JButton("Drop Section");
+        stylePrimaryAction(dropButton);
         dropButton.addActionListener(e -> {
             String sectionId = JOptionPane.showInputDialog(this, "Enter Section ID to drop");
             if (sectionId == null || sectionId.isBlank()) {
@@ -550,9 +550,9 @@ public final class StudentDashboardFrame extends JFrame {
             int totalWidth = timeColumnWidth + WEEK_DAYS.size() * slotWidth;
             int totalHeight = headerHeight + hourSpan * slotHeight;
             Dimension preferred = new Dimension(totalWidth, totalHeight);
-            if (!preferred.equals(getPreferredSize())) {
-                setPreferredSize(preferred);
-            }
+            setPreferredSize(preferred);
+            setMinimumSize(preferred);
+            setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
             g2.setColor(theme.cardBackground());
             g2.fillRect(0, 0, totalWidth, totalHeight);
@@ -665,7 +665,7 @@ public final class StudentDashboardFrame extends JFrame {
         private GradeDeckPanel() {
             setOpaque(false);
             setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-            setBorder(BorderFactory.createEmptyBorder(0, 4, 12, 4));
+            setBorder(BorderFactory.createEmptyBorder(0, 4, 8, 4));
         }
 
         void setGrades(List<GradeView> views) {
@@ -676,10 +676,10 @@ public final class StudentDashboardFrame extends JFrame {
             } else {
                 for (GradeView view : views) {
                     add(createGradeCard(view));
-                    add(Box.createVerticalStrut(16));
+                    add(Box.createVerticalStrut(6));
                 }
             }
-            add(Box.createVerticalStrut(8));
+            add(Box.createVerticalStrut(2));
             add(createInfoBanner());
             revalidate();
             repaint();
@@ -687,17 +687,30 @@ public final class StudentDashboardFrame extends JFrame {
 
         private JPanel createGradeCard(GradeView view) {
             JPanel card = createCardPanel();
-            card.setLayout(new BorderLayout(0, 12));
+            card.setLayout(new BorderLayout(0, 4));
+            card.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(theme.cardBorder()),
+                    BorderFactory.createEmptyBorder(6, 6, 6, 6)
+            ));
 
             JPanel header = new JPanel(new BorderLayout());
             header.setOpaque(false);
+            header.setBorder(BorderFactory.createEmptyBorder(0, 0, 2, 0));
 
             JLabel title = new JLabel(view.courseCode() + " • " + view.sectionId());
-            title.setFont(title.getFont().deriveFont(Font.BOLD, 16f));
+            title.setFont(title.getFont().deriveFont(Font.BOLD, 13f));
             title.setForeground(theme.textPrimary());
 
-            JLabel finalGrade = new JLabel("Final: " + format(view.finalGrade()));
-            finalGrade.setFont(finalGrade.getFont().deriveFont(Font.BOLD, 16f));
+            // Calculate final grade if not present (for old data)
+            Double finalGradeValue = view.finalGrade();
+            if (finalGradeValue == null && !view.components().isEmpty()) {
+                finalGradeValue = view.components().stream()
+                    .mapToDouble(comp -> comp.score() * comp.weight())
+                    .sum();
+            }
+
+            JLabel finalGrade = new JLabel("Final: " + format(finalGradeValue));
+            finalGrade.setFont(finalGrade.getFont().deriveFont(Font.BOLD, 13f));
             finalGrade.setForeground(BRAND_PRIMARY);
 
             header.add(title, BorderLayout.WEST);
@@ -708,11 +721,14 @@ public final class StudentDashboardFrame extends JFrame {
             if (view.components().isEmpty()) {
                 JLabel placeholder = new JLabel("No component scores posted yet.");
                 placeholder.setForeground(theme.placeholderText());
-                placeholder.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
+                placeholder.setBorder(BorderFactory.createEmptyBorder(2, 0, 0, 0));
+                placeholder.setFont(placeholder.getFont().deriveFont(12f));
                 card.add(placeholder, BorderLayout.CENTER);
             } else {
                 JTable table = createComponentTable(view);
                 JScrollPane scrollPane = createTableScrollPane(table);
+                scrollPane.setBorder(BorderFactory.createEmptyBorder());
+                scrollPane.setPreferredSize(new Dimension(0, Math.min(view.components().size() * 22 + 30, 150)));
                 card.add(scrollPane, BorderLayout.CENTER);
             }
 
@@ -738,15 +754,23 @@ public final class StudentDashboardFrame extends JFrame {
             JTable table = new JTable(model);
             styleDataTable(table);
             table.setAutoCreateRowSorter(false);
-            table.setRowHeight(26);
+            table.setRowHeight(20);
+            table.setIntercellSpacing(new Dimension(0, 0));
+            table.setShowGrid(false);
+            table.setFont(table.getFont().deriveFont(12f));
             return table;
         }
 
         private JPanel createNoGradesCard() {
             JPanel card = createCardPanel();
             card.setLayout(new BorderLayout());
+            card.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(theme.cardBorder()),
+                    BorderFactory.createEmptyBorder(6, 6, 6, 6)
+            ));
             JLabel label = new JLabel("No grades posted yet. Check back after instructors publish results.");
             label.setForeground(theme.placeholderText());
+            label.setFont(label.getFont().deriveFont(12f));
             card.add(label, BorderLayout.CENTER);
             return card;
         }

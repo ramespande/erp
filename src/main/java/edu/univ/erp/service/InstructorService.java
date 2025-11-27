@@ -27,5 +27,11 @@ public interface InstructorService {
                                               String sectionId,
                                               String enrollmentId,
                                               List<GradeComponent> components);
+
+    OperationResult<Void> saveGradeComponentsWithFinal(String instructorId,
+                                                       String sectionId,
+                                                       String enrollmentId,
+                                                       List<GradeComponent> components,
+                                                       double finalGrade);
 }
 

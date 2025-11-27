@@ -81,6 +81,8 @@ CREATE TABLE sections (
     semester INT NOT NULL,
     academic_year INT NOT NULL,
     registration_deadline DATE NOT NULL,
+    weighting_rule VARCHAR(100) NULL,
+    component_names VARCHAR(200) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     

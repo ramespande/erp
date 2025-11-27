@@ -28,16 +28,16 @@ public final class DefaultAuthService implements AuthService {
                 .map(record -> {
                     LocalDateTime now = LocalDateTime.now();
                     
-                    // Check if account is locked out
-                    if (record.lockoutUntil() != null && record.lockoutUntil().isAfter(now)) {
-                        long minutesRemaining = ChronoUnit.MINUTES.between(now, record.lockoutUntil());
-                        return OperationResult.<Role>failure("Account locked. Please try again in " + minutesRemaining + " minute(s).");
-                    }
-                    
                     // If lockout period has expired, reset failed attempts
                     if (record.lockoutUntil() != null && record.lockoutUntil().isBefore(now)) {
                         record = record.withFailedAttempts(0).withLockoutUntil(null);
                         authRepository.save(record);
+                    }
+                    
+                    // Check if account is locked out
+                    if (record.lockoutUntil() != null && record.lockoutUntil().isAfter(now)) {
+                        long secondsRemaining = ChronoUnit.SECONDS.between(now, record.lockoutUntil());
+                        return OperationResult.<Role>failure("LOCKED:" + secondsRemaining);
                     }
                     
                     if (!PasswordHasher.verify(password, record.passwordHash())) {
@@ -45,10 +45,10 @@ public final class DefaultAuthService implements AuthService {
                         int newAttempts = record.failedAttempts() + 1;
                         
                         if (newAttempts >= 5) {
-                            // Lock account for 1 minute
-                            LocalDateTime lockoutUntil = now.plusMinutes(1);
+                            // Lock account for 60 seconds
+                            LocalDateTime lockoutUntil = now.plusSeconds(60);
                             authRepository.save(record.withFailedAttempts(newAttempts).withLockoutUntil(lockoutUntil));
-                            return OperationResult.<Role>failure("Account locked for 1 minute after 5 failed attempts. Please try again later.");
+                            return OperationResult.<Role>failure("LOCKED:60");
                         } else {
                             authRepository.save(record.withFailedAttempts(newAttempts));
                             int remaining = 5 - newAttempts;

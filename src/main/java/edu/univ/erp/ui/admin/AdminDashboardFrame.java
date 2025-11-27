@@ -320,8 +320,74 @@ public final class AdminDashboardFrame extends JFrame {
         stylePrimaryAction(refresh);
         refresh.addActionListener(e -> loadCoursesAndSections());
 
+        JButton removeCourseButton = new JButton("Remove Course");
+        styleSecondaryAction(removeCourseButton);
+        removeCourseButton.addActionListener(e -> {
+            int row = coursesTable.getSelectedRow();
+            if (row < 0) {
+                JOptionPane.showMessageDialog(this, "Please select a course to remove.", "No Selection", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            String courseId = (String) coursesModel.getValueAt(row, 0);
+            String courseCode = (String) coursesModel.getValueAt(row, 1);
+            
+            // Confirm removal
+            int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "Are you sure you want to remove course '" + courseId + "' (" + courseCode + ")?\n\n" +
+                "Note: This action will be blocked if sections are associated with this course.",
+                "Confirm Remove Course",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+            );
+            
+            if (confirm == JOptionPane.YES_OPTION) {
+                var result = adminService.removeCourse(courseId);
+                if (result.isSuccess()) {
+                    JOptionPane.showMessageDialog(this, result.getMessage().orElse("Course removed successfully."));
+                    loadCoursesAndSections();
+                } else {
+                    JOptionPane.showMessageDialog(this, result.getMessage().orElse("Failed to remove course."), "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        JButton removeSectionButton = new JButton("Remove Section");
+        styleSecondaryAction(removeSectionButton);
+        removeSectionButton.addActionListener(e -> {
+            int row = sectionsTable.getSelectedRow();
+            if (row < 0) {
+                JOptionPane.showMessageDialog(this, "Please select a section to remove.", "No Selection", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            String sectionId = (String) sectionsModel.getValueAt(row, 0);
+            String courseCode = (String) sectionsModel.getValueAt(row, 1);
+            
+            // Confirm removal
+            int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "Are you sure you want to remove section '" + sectionId + "' (" + courseCode + ")?\n\n" +
+                "Note: This action will be blocked if students are enrolled in this section.",
+                "Confirm Remove Section",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+            );
+            
+            if (confirm == JOptionPane.YES_OPTION) {
+                var result = adminService.removeSection(sectionId);
+                if (result.isSuccess()) {
+                    JOptionPane.showMessageDialog(this, result.getMessage().orElse("Section removed successfully."));
+                    loadCoursesAndSections();
+                } else {
+                    JOptionPane.showMessageDialog(this, result.getMessage().orElse("Failed to remove section."), "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
         actions.setOpaque(false);
+        actions.add(removeCourseButton);
+        actions.add(removeSectionButton);
         actions.add(refresh);
 
         tablesPanel.add(cardsPanel, BorderLayout.CENTER);
@@ -459,8 +525,12 @@ public final class AdminDashboardFrame extends JFrame {
                 return;
             }
             try {
-                int creditsValue = parseInt(credits, 4);
-                if (creditsValue <= 0 || creditsValue > 6) {
+                int creditsValue = Integer.parseInt(credits.trim());
+                if (creditsValue <= 0) {
+                    JOptionPane.showMessageDialog(this, "Credits must be a positive integer.");
+                    return;
+                }
+                if (creditsValue > 6) {
                     JOptionPane.showMessageDialog(this, "Credits must be between 1 and 6.");
                     return;
                 }
@@ -506,6 +576,8 @@ public final class AdminDashboardFrame extends JFrame {
         JTextField semesterField = new JTextField(20);
         JTextField yearField = new JTextField(20);
         JTextField deadlineField = new JTextField(20);
+        JTextField weightingRuleField = new JTextField(20);
+        JTextField componentNamesField = new JTextField(20);
 
         gbc.gridx = 0; gbc.gridy = 12;
         formCard.add(new JLabel("Section ID:"), gbc);
@@ -562,6 +634,16 @@ public final class AdminDashboardFrame extends JFrame {
         gbc.gridx = 1;
         formCard.add(deadlineField, gbc);
 
+        gbc.gridx = 0; gbc.gridy = 23;
+        formCard.add(new JLabel("Weighting Rule (e.g., 20,30,50):"), gbc);
+        gbc.gridx = 1;
+        formCard.add(weightingRuleField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 24;
+        formCard.add(new JLabel("Component Names (e.g., Quiz,Midsem,Endsem):"), gbc);
+        gbc.gridx = 1;
+        formCard.add(componentNamesField, gbc);
+
         JButton addSectionButton = new JButton("Add Section");
         stylePrimaryAction(addSectionButton);
         addSectionButton.addActionListener(e -> {
@@ -577,6 +659,8 @@ public final class AdminDashboardFrame extends JFrame {
                 String semester = semesterField.getText().trim();
                 String year = yearField.getText().trim();
                 String deadline = deadlineField.getText().trim();
+                String weightingRule = weightingRuleField.getText().trim();
+                String componentNames = componentNamesField.getText().trim();
                 if (sectionId.isEmpty() || courseId.isEmpty() || day.isEmpty() || start.isEmpty() || end.isEmpty()) {
                     JOptionPane.showMessageDialog(this, "Please fill required fields (Section ID, Course ID, Day, Start Time, End Time).");
                     return;
@@ -585,16 +669,69 @@ public final class AdminDashboardFrame extends JFrame {
                     JOptionPane.showMessageDialog(this, "Instructor ID is required. Please enter a valid instructor user ID (e.g., USR-INST-001).");
                     return;
                 }
+                if (weightingRule.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Weighting rule is required. Please enter weights separated by commas (e.g., 20,30,50).");
+                    return;
+                }
+                if (componentNames.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Component names are required. Please enter names separated by commas (e.g., Quiz,Midsem,Endsem).");
+                    return;
+                }
+                // Validate weighting rule sums to 100
+                try {
+                    String[] weights = weightingRule.split(",");
+                    String[] names = componentNames.split(",");
+                    
+                    if (weights.length != names.length) {
+                        JOptionPane.showMessageDialog(this, "Number of weights must match number of component names. You have " + weights.length + " weights and " + names.length + " names.");
+                        return;
+                    }
+                    
+                    int total = 0;
+                    for (String weightStr : weights) {
+                        int weight = Integer.parseInt(weightStr.trim());
+                        if (weight <= 0) {
+                            JOptionPane.showMessageDialog(this, "All weights must be positive numbers.");
+                            return;
+                        }
+                        total += weight;
+                    }
+                    if (total != 100) {
+                        JOptionPane.showMessageDialog(this, "Weighting rule must sum to 100. Current sum: " + total);
+                        return;
+                    }
+                    
+                    // Validate component names are not empty
+                    for (String name : names) {
+                        if (name.trim().isEmpty()) {
+                            JOptionPane.showMessageDialog(this, "Component names cannot be empty.");
+                            return;
+                        }
+                    }
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(this, "Invalid weighting rule format. Please enter comma-separated numbers (e.g., 20,30,50).");
+                    return;
+                }
                 LocalDate deadlineDate;
                 if (deadline.isEmpty()) {
                     deadlineDate = LocalDate.now().plusWeeks(2);
                 } else {
                     deadlineDate = LocalDate.parse(deadline);
                 }
-                int capacityValue = parseInt(capacity, 30);
-                if (capacityValue <= 0) {
-                    JOptionPane.showMessageDialog(this, "Capacity must be greater than 0.");
-                    return;
+                int capacityValue;
+                if (capacity.isEmpty()) {
+                    capacityValue = 30;
+                } else {
+                    try {
+                        capacityValue = Integer.parseInt(capacity.trim());
+                        if (capacityValue <= 0) {
+                            JOptionPane.showMessageDialog(this, "Capacity must be a positive integer.");
+                            return;
+                        }
+                    } catch (NumberFormatException ex) {
+                        JOptionPane.showMessageDialog(this, "Capacity must be a positive integer.");
+                        return;
+                    }
                 }
                 LocalTime startTime = LocalTime.parse(start);
                 LocalTime endTime = LocalTime.parse(end);
@@ -602,6 +739,22 @@ public final class AdminDashboardFrame extends JFrame {
                     JOptionPane.showMessageDialog(this, "Start time must be before end time.");
                     return;
                 }
+                
+                // Validate semester and year are positive integers
+                int semesterValue;
+                try {
+                    semesterValue = semester.isEmpty() || semester.trim().isEmpty() ? 1 : validatePositiveInt(semester.trim(), "Semester", 1);
+                } catch (IllegalArgumentException ex) {
+                    return; // Error already shown by validatePositiveInt
+                }
+                
+                int yearValue;
+                try {
+                    yearValue = year.isEmpty() || year.trim().isEmpty() ? LocalDate.now().getYear() : validatePositiveInt(year.trim(), "Year", LocalDate.now().getYear());
+                } catch (IllegalArgumentException ex) {
+                    return; // Error already shown by validatePositiveInt
+                }
+                
                 Section section = new Section(
                         sectionId,
                         courseId,
@@ -611,9 +764,11 @@ public final class AdminDashboardFrame extends JFrame {
                         endTime,
                         room,
                         capacityValue,
-                        semester.isEmpty() ? 1 : parseInt(semester, 1),
-                        year.isEmpty() ? LocalDate.now().getYear() : parseInt(year, LocalDate.now().getYear()),
-                        deadlineDate
+                        semesterValue,
+                        yearValue,
+                        deadlineDate,
+                        weightingRule,
+                        componentNames
                 );
                 var result = adminService.addSection(section);
                 if (result.isSuccess()) {
@@ -629,6 +784,8 @@ public final class AdminDashboardFrame extends JFrame {
                     semesterField.setText("");
                     yearField.setText("");
                     deadlineField.setText("");
+                    weightingRuleField.setText("");
+                    componentNamesField.setText("");
                     loadCoursesAndSections();
                 } else {
                     JOptionPane.showMessageDialog(this, "Failed to add section: " + result.getMessage().orElse("Unknown error."), "Error", JOptionPane.ERROR_MESSAGE);
@@ -644,13 +801,13 @@ public final class AdminDashboardFrame extends JFrame {
             }
         });
 
-        gbc.gridx = 0; gbc.gridy = 23;
+        gbc.gridx = 0; gbc.gridy = 25;
         gbc.gridwidth = 2;
         gbc.anchor = GridBagConstraints.CENTER;
         formCard.add(addSectionButton, gbc);
 
         // Maintenance Toggle
-        gbc.gridx = 0; gbc.gridy = 24;
+        gbc.gridx = 0; gbc.gridy = 28;
         gbc.gridwidth = 1;
         gbc.anchor = GridBagConstraints.WEST;
         formCard.add(new JLabel("Maintenance Mode", SwingConstants.LEFT), gbc);
@@ -666,12 +823,12 @@ public final class AdminDashboardFrame extends JFrame {
             refreshMaintenanceLabel();
         });
 
-        gbc.gridx = 0; gbc.gridy = 25;
+        gbc.gridx = 0; gbc.gridy = 29;
         gbc.gridwidth = 2;
         gbc.anchor = GridBagConstraints.CENTER;
         formCard.add(toggleButton, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 26;
+        gbc.gridx = 0; gbc.gridy = 30;
         gbc.gridwidth = 2;
         gbc.anchor = GridBagConstraints.WEST;
         formCard.add(new JLabel("Data Utilities", SwingConstants.LEFT), gbc);
@@ -680,7 +837,7 @@ public final class AdminDashboardFrame extends JFrame {
         JButton seedButton = new JButton("Seed 100 Demo Courses");
         styleSecondaryAction(seedButton);
         seedButton.addActionListener(e -> seedDemoCourses());
-        gbc.gridx = 0; gbc.gridy = 27;
+        gbc.gridx = 0; gbc.gridy = 31;
         gbc.gridwidth = 2;
         gbc.anchor = GridBagConstraints.CENTER;
         formCard.add(seedButton, gbc);
@@ -688,13 +845,13 @@ public final class AdminDashboardFrame extends JFrame {
         JButton backupButton = new JButton("Backup Courses & Sections");
         stylePrimaryAction(backupButton);
         backupButton.addActionListener(e -> performBackup());
-        gbc.gridy = 28;
+        gbc.gridy = 32;
         formCard.add(backupButton, gbc);
 
         JButton restoreButton = new JButton("Restore Backup");
         styleSecondaryAction(restoreButton);
         restoreButton.addActionListener(e -> performRestore());
-        gbc.gridy = 29;
+        gbc.gridy = 33;
         formCard.add(restoreButton, gbc);
         
         content.add(header, BorderLayout.NORTH);
@@ -867,10 +1024,13 @@ public final class AdminDashboardFrame extends JFrame {
     }
 
     private void loadCoursesAndSections() {
+        // Clear existing data
         coursesModel.setRowCount(0);
         sectionsModel.setRowCount(0);
 
-        for (Course course : erpRepository.listCourses()) {
+        // Load courses
+        java.util.List<Course> courses = erpRepository.listCourses();
+        for (Course course : courses) {
             coursesModel.addRow(new Object[]{
                     course.getCourseId(),
                     course.getCode(),
@@ -879,7 +1039,9 @@ public final class AdminDashboardFrame extends JFrame {
             });
         }
 
-        for (Section section : erpRepository.listSections()) {
+        // Load sections
+        java.util.List<Section> sections = erpRepository.listSections();
+        for (Section section : sections) {
             String courseCode = erpRepository.findCourse(section.getCourseId())
                     .map(Course::getCode)
                     .orElse("Unknown");
@@ -894,6 +1056,11 @@ public final class AdminDashboardFrame extends JFrame {
                     section.getRegistrationDeadline()
             });
         }
+        
+        // Force table model to fire change events to update UI
+        // Note: addRow() automatically fires table changed events, but we fire again to ensure UI updates
+        coursesModel.fireTableDataChanged();
+        sectionsModel.fireTableDataChanged();
     }
 
     private void seedDemoCourses() {
@@ -1001,6 +1168,20 @@ public final class AdminDashboardFrame extends JFrame {
         refreshMaintenanceLabel();
     }
 
+    private int validatePositiveInt(String value, String fieldName, int defaultValue) {
+        try {
+            int intValue = Integer.parseInt(value);
+            if (intValue <= 0) {
+                JOptionPane.showMessageDialog(this, fieldName + " must be a positive integer.");
+                throw new IllegalArgumentException(fieldName + " must be positive");
+            }
+            return intValue;
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, fieldName + " must be a positive integer.");
+            throw new IllegalArgumentException(fieldName + " must be a valid integer");
+        }
+    }
+    
     private int parseInt(String value, int defaultValue) {
         try {
             return Integer.parseInt(value);

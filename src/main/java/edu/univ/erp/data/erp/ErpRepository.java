@@ -26,11 +26,15 @@ public interface ErpRepository {
 
     void saveCourse(Course course);
 
+    void deleteCourse(String courseId);
+
     Optional<Section> findSection(String sectionId);
 
     List<Section> listSections();
 
     void saveSection(Section section);
+
+    void deleteSection(String sectionId);
 
     List<Enrollment> findEnrollmentsByStudent(String studentId);
 

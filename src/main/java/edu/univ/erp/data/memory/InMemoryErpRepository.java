@@ -60,6 +60,12 @@ public final class InMemoryErpRepository implements ErpRepository {
     }
 
     @Override
+    public void deleteCourse(String courseId) {
+        store.courses().remove(courseId);
+        store.save();
+    }
+
+    @Override
     public Optional<Section> findSection(String sectionId) {
         return Optional.ofNullable(store.sections().get(sectionId));
     }
@@ -72,6 +78,12 @@ public final class InMemoryErpRepository implements ErpRepository {
     @Override
     public void saveSection(Section section) {
         store.sections().put(section.getSectionId(), section);
+        store.save();
+    }
+
+    @Override
+    public void deleteSection(String sectionId) {
+        store.sections().remove(sectionId);
         store.save();
     }
 

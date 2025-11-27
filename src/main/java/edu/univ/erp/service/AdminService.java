@@ -15,7 +15,11 @@ public interface AdminService {
 
     OperationResult<Course> addCourse(Course course);
 
+    OperationResult<Void> removeCourse(String courseId);
+
     OperationResult<Section> addSection(Section section);
+
+    OperationResult<Void> removeSection(String sectionId);
 
     OperationResult<Void> assignInstructor(String sectionId, String instructorId);
 

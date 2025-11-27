@@ -43,6 +43,7 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public final class InstructorDashboardFrame extends JFrame {
 
@@ -226,23 +227,10 @@ public final class InstructorDashboardFrame extends JFrame {
         stylePrimaryAction(refresh);
         refresh.addActionListener(e -> loadSections());
 
-        JButton viewGrades = new JButton("View Grades");
-        styleSecondaryAction(viewGrades);
-        viewGrades.addActionListener(e -> {
-            int row = table.getSelectedRow();
-            if (row < 0) {
-                JOptionPane.showMessageDialog(this, "Select a section first.");
-                return;
-            }
-            String sectionId = (String) sectionsModel.getValueAt(row, 0);
-            showGradesForSection(sectionId);
-        });
-
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
         actions.setOpaque(false);
         actions.setBorder(BorderFactory.createEmptyBorder(16, 0, 0, 0));
         actions.add(refresh);
-        actions.add(viewGrades);
 
         JPanel tableCard = createCardPanel();
         tableCard.add(scrollPane, BorderLayout.CENTER);
@@ -378,8 +366,8 @@ public final class InstructorDashboardFrame extends JFrame {
         selectorRow.add(enrollmentCombo);
 
         JTextArea guidance = new JTextArea("""
-                Pick a section and student, then add, edit, or delete grade components.
-                Weights must total 1.0 before saving. Preview shows the calculated final grade.
+                Pick a section and student, then enter grades for each component.
+                Final grade will be calculated automatically using the weighting rule.
                 """);
         guidance.setWrapStyleWord(true);
         guidance.setLineWrap(true);
@@ -393,92 +381,300 @@ public final class InstructorDashboardFrame extends JFrame {
         selectorCard.add(selectorRow, BorderLayout.NORTH);
         selectorCard.add(guidance, BorderLayout.CENTER);
 
-        JTable componentTable = new JTable(gradeComponentsModel);
-        styleDataTable(componentTable);
-        componentTable.setAutoCreateRowSorter(false);
-        JScrollPane tableScrollPane = createTableScrollPane(componentTable);
+        // Grade entry form panel
+        JPanel gradeFormCard = createCardPanel();
+        gradeFormCard.setLayout(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new java.awt.Insets(8, 8, 8, 8);
+        gbc.anchor = GridBagConstraints.WEST;
 
-        JLabel weightSummary = new JLabel("Total Weight: 0.00");
-        weightSummary.setForeground(theme.textSecondary());
-        JLabel previewSummary = new JLabel("Preview Final: -");
-        previewSummary.setForeground(theme.textSecondary());
+        // This will be populated dynamically based on section's weighting rule
+        JPanel gradeFieldsPanel = new JPanel(new GridBagLayout());
+        gradeFieldsPanel.setOpaque(false);
+        GridBagConstraints fieldGbc = new GridBagConstraints();
+        fieldGbc.insets = new java.awt.Insets(4, 4, 4, 4);
+        fieldGbc.anchor = GridBagConstraints.WEST;
 
-        JPanel summaryBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 4));
-        summaryBar.setOpaque(false);
-        summaryBar.add(weightSummary);
-        summaryBar.add(previewSummary);
+        JLabel finalGradeLabel = new JLabel("Final Grade: -");
+        finalGradeLabel.setForeground(theme.textPrimary());
+        finalGradeLabel.setFont(finalGradeLabel.getFont().deriveFont(Font.BOLD, 14f));
 
-        JPanel tableCard = createCardPanel();
-        tableCard.add(tableScrollPane, BorderLayout.CENTER);
-        tableCard.add(summaryBar, BorderLayout.SOUTH);
+        // Store grade fields dynamically
+        java.util.List<JTextField> gradeFields = new ArrayList<>();
+        java.util.List<Integer> weights = new ArrayList<>();
 
-        JButton addButton = new JButton("Add Component");
-        styleSecondaryAction(addButton);
-        addButton.addActionListener(e -> {
-            GradeComponent component = promptForComponent(null);
-            if (component != null) {
-                gradeComponentsModel.addRow(new Object[] {component.getName(), component.getScore(), component.getWeight()});
-                updateComponentSummaries(weightSummary, previewSummary);
+        Runnable updateFinalGrade = () -> {
+            double finalGrade = 0;
+            for (int i = 0; i < gradeFields.size() && i < weights.size(); i++) {
+                try {
+                    String text = gradeFields.get(i).getText().trim();
+                    if (!text.isEmpty()) {
+                        double score = Double.parseDouble(text);
+                        if (score < 0 || score > 100) {
+                            finalGradeLabel.setText("Final Grade: Invalid (scores must be 0-100)");
+                            finalGradeLabel.setForeground(Color.RED);
+                            return;
+                        }
+                        finalGrade += (weights.get(i) * score) / 100.0;
+                    }
+                } catch (NumberFormatException ex) {
+                    finalGradeLabel.setText("Final Grade: Invalid input");
+                    finalGradeLabel.setForeground(Color.RED);
+                    return;
+                }
             }
-        });
+            if (gradeFields.isEmpty() || gradeFields.stream().allMatch(f -> f.getText().trim().isEmpty())) {
+                finalGradeLabel.setText("Final Grade: -");
+                finalGradeLabel.setForeground(theme.textPrimary());
+            } else {
+                finalGradeLabel.setText(String.format("Final Grade: %.2f", finalGrade));
+                finalGradeLabel.setForeground(theme.textPrimary());
+            }
+        };
 
-        JButton editButton = new JButton("Edit Selected");
-        styleSecondaryAction(editButton);
-        editButton.addActionListener(e -> {
-            int row = componentTable.getSelectedRow();
-            if (row < 0) {
-                JOptionPane.showMessageDialog(this, "Select a component to edit.");
+        Runnable loadGradeForm = () -> {
+            SectionOption section = (SectionOption) sectionCombo.getSelectedItem();
+            EnrollmentOption enrollment = (EnrollmentOption) enrollmentCombo.getSelectedItem();
+            
+            gradeFieldsPanel.removeAll();
+            gradeFields.clear();
+            weights.clear();
+            
+            if (section == null || enrollment == null) {
+                gradeFormCard.revalidate();
+                gradeFormCard.repaint();
                 return;
             }
-            GradeComponent existing = new GradeComponent(
-                    gradeComponentsModel.getValueAt(row, 0).toString(),
-                    Double.parseDouble(gradeComponentsModel.getValueAt(row, 1).toString()),
-                    Double.parseDouble(gradeComponentsModel.getValueAt(row, 2).toString())
-            );
-            GradeComponent updated = promptForComponent(existing);
-            if (updated != null) {
-                gradeComponentsModel.setValueAt(updated.getName(), row, 0);
-                gradeComponentsModel.setValueAt(updated.getScore(), row, 1);
-                gradeComponentsModel.setValueAt(updated.getWeight(), row, 2);
-                updateComponentSummaries(weightSummary, previewSummary);
-            }
-        });
 
-        JButton deleteButton = new JButton("Delete Selected");
-        styleGhostButton(deleteButton);
-        deleteButton.addActionListener(e -> {
-            int row = componentTable.getSelectedRow();
-            if (row < 0) {
-                JOptionPane.showMessageDialog(this, "Select a component to delete.");
-                return;
-            }
-            gradeComponentsModel.removeRow(row);
-            updateComponentSummaries(weightSummary, previewSummary);
-        });
+            erpRepository.findSection(section.id()).ifPresent(sec -> {
+                String rule = sec.getWeightingRule();
+                if (rule == null || rule.isEmpty()) {
+                    // Add a message label
+                    JLabel messageLabel = new JLabel("<html><center>This section does not have a weighting rule set.<br>Please contact an administrator to configure it.</center></html>");
+                    messageLabel.setForeground(Color.RED);
+                    messageLabel.setHorizontalAlignment(SwingConstants.CENTER);
+                    gradeFieldsPanel.removeAll();
+                    gradeFieldsPanel.add(messageLabel, fieldGbc);
+                    
+                    gradeFields.clear();
+                    weights.clear();
+                    finalGradeLabel.setText("Final Grade: -");
+                    gradeFormCard.revalidate();
+                    gradeFormCard.repaint();
+                    return;
+                }
+                String[] weightStrs = rule.split(",");
+                String[] componentNameStrs = sec.getComponentNames() != null && !sec.getComponentNames().isEmpty() 
+                    ? sec.getComponentNames().split(",") 
+                    : new String[0];
+                
+                // Use component names if available, otherwise use Component 1, 2, 3...
+                for (int i = 0; i < weightStrs.length; i++) {
+                    try {
+                        int weight = Integer.parseInt(weightStrs[i].trim());
+                        weights.add(weight);
+                        
+                        String componentName;
+                        if (i < componentNameStrs.length && !componentNameStrs[i].trim().isEmpty()) {
+                            componentName = componentNameStrs[i].trim();
+                        } else {
+                            componentName = "Component " + (i + 1);
+                        }
+                        
+                        JLabel componentLabel = new JLabel(componentName + " (" + weight + "%):");
+                        componentLabel.setForeground(theme.textPrimary());
+                        JTextField gradeField = new JTextField(10);
+                        gradeField.addKeyListener(new java.awt.event.KeyAdapter() {
+                            @Override
+                            public void keyReleased(java.awt.event.KeyEvent e) {
+                                updateFinalGrade.run();
+                            }
+                        });
+                        gradeFields.add(gradeField);
+                        
+                        fieldGbc.gridx = 0;
+                        fieldGbc.gridy = i;
+                        gradeFieldsPanel.add(componentLabel, fieldGbc);
+                        fieldGbc.gridx = 1;
+                        gradeFieldsPanel.add(gradeField, fieldGbc);
+                    } catch (NumberFormatException ex) {
+                        // Skip invalid weights
+                    }
+                }
 
-        JButton saveButton = new JButton("Save Gradebook");
+                // Load existing grades if any
+                var result = instructorService.listGradeComponents(instructorId, section.id(), enrollment.id());
+                if (result.isSuccess() && !result.getPayload().orElse(List.of()).isEmpty()) {
+                    List<GradeComponent> components = result.getPayload().orElse(List.of());
+                    for (int i = 0; i < Math.min(components.size(), gradeFields.size()); i++) {
+                        gradeFields.get(i).setText(String.valueOf(components.get(i).getScore()));
+                    }
+                }
+
+                updateFinalGrade.run();
+                gradeFormCard.revalidate();
+                gradeFormCard.repaint();
+            });
+        };
+
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.gridwidth = 2;
+        gradeFormCard.add(gradeFieldsPanel, gbc);
+        gbc.gridy = 1;
+        gbc.anchor = GridBagConstraints.CENTER;
+        gradeFormCard.add(finalGradeLabel, gbc);
+
+        JButton saveButton = new JButton("Submit Grades");
         stylePrimaryAction(saveButton);
         saveButton.addActionListener(e -> {
             SectionOption section = (SectionOption) sectionCombo.getSelectedItem();
             EnrollmentOption enrollment = (EnrollmentOption) enrollmentCombo.getSelectedItem();
             if (section == null || enrollment == null) {
-                JOptionPane.showMessageDialog(this, "Select both section and enrollment.");
+                JOptionPane.showMessageDialog(this, "Please select both a section and a student.", "Selection Required", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            List<GradeComponent> components = collectComponentsFromTable();
-            var result = instructorService.saveGradeComponents(instructorId, section.id(), enrollment.id(), components);
-            JOptionPane.showMessageDialog(this, result.getMessage().orElse(result.isSuccess() ? "Gradebook saved." : "Failed to save gradebook."));
-            if (result.isSuccess()) {
-                loadGradeComponents(section.id(), enrollment.id(), weightSummary, previewSummary);
-            }
+
+            // Check if section has weighting rule
+            erpRepository.findSection(section.id()).ifPresentOrElse(sec -> {
+                String rule = sec.getWeightingRule();
+                if (rule == null || rule.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, 
+                        "This section does not have a weighting rule set.\nPlease contact an administrator to set the weighting rule.", 
+                        "Weighting Rule Missing", 
+                        JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                // Validate that grade fields are available
+                if (gradeFields.isEmpty() || weights.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, 
+                        "Grade entry form is not ready. Please wait for the form to load or select a different section.", 
+                        "Form Not Ready", 
+                        JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                // Validate that grade fields match weights
+                if (gradeFields.size() != weights.size()) {
+                    JOptionPane.showMessageDialog(this, 
+                        "Grade fields do not match weighting rule. Please refresh by selecting the section again.", 
+                        "Form Error", 
+                        JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                // Get component names from section
+                Optional<Section> sectionOpt = erpRepository.findSection(section.id());
+                String[] finalComponentNames = sectionOpt.isPresent() && sectionOpt.get().getComponentNames() != null && !sectionOpt.get().getComponentNames().isEmpty()
+                    ? sectionOpt.get().getComponentNames().split(",")
+                    : new String[0];
+                
+                // Collect grades
+                List<GradeComponent> components = new ArrayList<>();
+                
+                for (int i = 0; i < gradeFields.size() && i < weights.size(); i++) {
+                    String text = gradeFields.get(i).getText().trim();
+                    if (!text.isEmpty()) {
+                        try {
+                            double score = Double.parseDouble(text);
+                            if (score < 0 || score > 100) {
+                                String componentName = (i < finalComponentNames.length && !finalComponentNames[i].trim().isEmpty()) 
+                                    ? finalComponentNames[i].trim() 
+                                    : "Component " + (i + 1);
+                                JOptionPane.showMessageDialog(this, 
+                                    String.format("Score for %s must be between 0 and 100.", componentName), 
+                                    "Invalid Score", 
+                                    JOptionPane.ERROR_MESSAGE);
+                                return;
+                            }
+                            
+                            // Get component name
+                            String componentName;
+                            if (i < finalComponentNames.length && !finalComponentNames[i].trim().isEmpty()) {
+                                componentName = finalComponentNames[i].trim();
+                            } else {
+                                componentName = "Component " + (i + 1);
+                            }
+                            
+                            // Weight is stored as percentage (0-100), convert to decimal (0-1) for GradeComponent
+                            double weightDecimal = weights.get(i) / 100.0;
+                            components.add(new GradeComponent(componentName, score, weightDecimal));
+                        } catch (NumberFormatException ex) {
+                            String componentName = (i < finalComponentNames.length && !finalComponentNames[i].trim().isEmpty()) 
+                                ? finalComponentNames[i].trim() 
+                                : "Component " + (i + 1);
+                            JOptionPane.showMessageDialog(this, 
+                                String.format("Invalid grade value for %s. Please enter a valid number.", componentName), 
+                                "Invalid Input", 
+                                JOptionPane.ERROR_MESSAGE);
+                            return;
+                        }
+                    }
+                }
+
+                if (components.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, 
+                        "Please enter at least one grade before submitting.", 
+                        "No Grades Entered", 
+                        JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                // Validate that all required components have grades
+                if (components.size() < weights.size()) {
+                    int missing = weights.size() - components.size();
+                    int response = JOptionPane.showConfirmDialog(this, 
+                        String.format("You have not entered grades for %d component(s). Do you want to submit anyway?", missing), 
+                        "Missing Grades", 
+                        JOptionPane.YES_NO_OPTION, 
+                        JOptionPane.QUESTION_MESSAGE);
+                    if (response != JOptionPane.YES_OPTION) {
+                        return;
+                    }
+                }
+
+                // Calculate final grade using the formula: sum((weight * score) / 100)
+                double finalGrade = 0;
+                for (int i = 0; i < components.size(); i++) {
+                    GradeComponent comp = components.get(i);
+                    int weight = weights.get(i);
+                    finalGrade += (weight * comp.getScore()) / 100.0;
+                }
+
+                // Save with calculated final grade
+                try {
+                    var result = instructorService.saveGradeComponentsWithFinal(instructorId, section.id(), enrollment.id(), components, finalGrade);
+                    if (result.isSuccess()) {
+                        JOptionPane.showMessageDialog(this, 
+                            String.format("Grades submitted successfully!\nFinal Grade: %.2f", finalGrade), 
+                            "Success", 
+                            JOptionPane.INFORMATION_MESSAGE);
+                        loadGradeForm.run();
+                    } else {
+                        JOptionPane.showMessageDialog(this, 
+                            result.getMessage().orElse("Failed to submit grades."), 
+                            "Error", 
+                            JOptionPane.ERROR_MESSAGE);
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, 
+                        "An error occurred while submitting grades: " + ex.getMessage(), 
+                        "Error", 
+                        JOptionPane.ERROR_MESSAGE);
+                    ex.printStackTrace();
+                }
+            }, () -> {
+                JOptionPane.showMessageDialog(this, 
+                    "Section not found. Please select a valid section.", 
+                    "Section Not Found", 
+                    JOptionPane.ERROR_MESSAGE);
+            });
         });
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
         actions.setOpaque(false);
         actions.setBorder(BorderFactory.createEmptyBorder(16, 0, 0, 0));
-        actions.add(addButton);
-        actions.add(editButton);
-        actions.add(deleteButton);
         actions.add(saveButton);
 
         sectionCombo.addActionListener(e -> {
@@ -487,18 +683,12 @@ public final class InstructorDashboardFrame extends JFrame {
             EnrollmentOption enrollment = enrollmentOptions.getSize() > 0 ? enrollmentOptions.getElementAt(0) : null;
             if (selected != null && enrollment != null) {
                 enrollmentCombo.setSelectedItem(enrollment);
-                loadGradeComponents(selected.id(), enrollment.id(), weightSummary, previewSummary);
-            } else {
-                clearGradeComponents(weightSummary, previewSummary);
             }
+            loadGradeForm.run();
         });
 
         enrollmentCombo.addActionListener(e -> {
-            SectionOption section = (SectionOption) sectionCombo.getSelectedItem();
-            EnrollmentOption enrollment = (EnrollmentOption) enrollmentCombo.getSelectedItem();
-            if (section != null && enrollment != null) {
-                loadGradeComponents(section.id(), enrollment.id(), weightSummary, previewSummary);
-            }
+            loadGradeForm.run();
         });
 
         SectionOption initialSection = sectionOptions.getSize() > 0 ? sectionOptions.getElementAt(0) : null;
@@ -506,21 +696,28 @@ public final class InstructorDashboardFrame extends JFrame {
             populateEnrollmentOptions(initialSection.id(), enrollmentOptions);
             if (enrollmentOptions.getSize() > 0) {
                 enrollmentCombo.setSelectedIndex(0);
-                loadGradeComponents(initialSection.id(), enrollmentOptions.getElementAt(0).id(), weightSummary, previewSummary);
+                // Trigger load after a short delay to ensure UI is ready
+                javax.swing.SwingUtilities.invokeLater(() -> {
+                    loadGradeForm.run();
+                });
+            } else {
+                loadGradeForm.run();
             }
+        } else {
+            loadGradeForm.run();
         }
 
         JPanel centerStack = new JPanel(new BorderLayout(0, 16));
         centerStack.setOpaque(false);
         centerStack.add(selectorCard, BorderLayout.NORTH);
-        centerStack.add(tableCard, BorderLayout.CENTER);
+        centerStack.add(gradeFormCard, BorderLayout.CENTER);
 
         JPanel body = new JPanel(new BorderLayout());
         body.setOpaque(false);
         body.add(centerStack, BorderLayout.CENTER);
         body.add(actions, BorderLayout.SOUTH);
 
-        return createPageLayout(tabs, "Grade Entry", "Design components and ensure weights sum to 1.0 before saving.", body);
+        return createPageLayout(tabs, "Grade Entry", "Enter grades for each component. Final grade is calculated automatically.", body);
     }
 
     private JPanel createPageLayout(JTabbedPane tabs, String title, String subtitle, JComponent body) {

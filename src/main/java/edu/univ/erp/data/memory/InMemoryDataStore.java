@@ -175,7 +175,9 @@ public final class InMemoryDataStore implements Serializable {
                 30,
                 1,
                 2024,
-                LocalDate.now().plusWeeks(2));
+                LocalDate.now().plusWeeks(2),
+                "33,33,34",
+                "Quiz,Midsem,Endsem");
         Section sec2 = new Section(
                 "section-2",
                 cs201.getCourseId(),
@@ -187,7 +189,9 @@ public final class InMemoryDataStore implements Serializable {
                 25,
                 1,
                 2024,
-                LocalDate.now().plusWeeks(2));
+                LocalDate.now().plusWeeks(2),
+                "33,33,34",
+                "Quiz,Midsem,Endsem");
         sections.put(sec1.getSectionId(), sec1);
         sections.put(sec2.getSectionId(), sec2);
 

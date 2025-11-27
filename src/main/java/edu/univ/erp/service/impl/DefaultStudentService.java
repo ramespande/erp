@@ -152,7 +152,24 @@ public final class DefaultStudentService implements StudentService {
                     .map(component -> new GradeView.ComponentScore(component.getName(), component.getScore(), component.getWeight()))
                     .toList();
 
+            // Calculate final grade if not present (for old data compatibility)
             Double finalGrade = gradeBook.flatMap(GradeBook::getFinalGrade).orElse(null);
+            if (finalGrade == null && !componentScores.isEmpty()) {
+                // Calculate from components: sum(score * weight) where weight is 0-1
+                finalGrade = componentScores.stream()
+                    .mapToDouble(comp -> comp.score() * comp.weight())
+                    .sum();
+                
+                // Update the database with calculated final grade for old data
+                if (gradeBook.isPresent()) {
+                    GradeBook updated = new GradeBook(
+                        gradeBook.get().getEnrollmentId(),
+                        gradeBook.get().getComponents(),
+                        finalGrade
+                    );
+                    erpRepository.saveGradeBook(updated);
+                }
+            }
             gradeViews.add(new GradeView(course.get().getCode(), section.get().getSectionId(), componentScores, finalGrade));
         }
         return OperationResult.success(gradeViews);

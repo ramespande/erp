@@ -7,12 +7,12 @@ REM ============================================================================
 REM Auth Database Configuration
 set "ERP_AUTH_DB_URL=jdbc:mysql://localhost:3306/erp_auth?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
 set "ERP_AUTH_DB_USER=root"
-set "ERP_AUTH_DB_PASSWORD=rijul"
+set "ERP_AUTH_DB_PASSWORD=abhigyan"
 
 REM ERP Database Configuration
 set "ERP_DATA_DB_URL=jdbc:mysql://localhost:3306/erp_data?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
 set "ERP_DATA_DB_USER=root"
-set "ERP_DATA_DB_PASSWORD=rijul"
+set "ERP_DATA_DB_PASSWORD=abhigyan"
 
 REM Connection Pool Size (optional)
 set "ERP_DB_POOL_SIZE=8"

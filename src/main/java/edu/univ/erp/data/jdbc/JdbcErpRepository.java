@@ -111,10 +111,18 @@ public final class JdbcErpRepository implements ErpRepository {
     }
 
     @Override
+    public void deleteCourse(String courseId) {
+        String sql = "DELETE FROM courses WHERE course_id = ?";
+        executeUpdate(sql, ps -> {
+            ps.setString(1, courseId);
+        });
+    }
+
+    @Override
     public Optional<Section> findSection(String sectionId) {
         String sql = """
                 SELECT section_id, course_id, instructor_id, day_of_week, start_time, end_time,
-                       room, capacity, semester, academic_year, registration_deadline
+                       room, capacity, semester, academic_year, registration_deadline, weighting_rule, component_names
                 FROM sections WHERE section_id = ?
                 """;
         return querySingle(sql, ps -> ps.setString(1, sectionId), this::mapSection);
@@ -124,7 +132,7 @@ public final class JdbcErpRepository implements ErpRepository {
     public List<Section> listSections() {
         String sql = """
                 SELECT section_id, course_id, instructor_id, day_of_week, start_time, end_time,
-                       room, capacity, semester, academic_year, registration_deadline
+                       room, capacity, semester, academic_year, registration_deadline, weighting_rule, component_names
                 FROM sections
                 """;
         return queryList(sql, ps -> {
@@ -135,8 +143,8 @@ public final class JdbcErpRepository implements ErpRepository {
     public void saveSection(Section section) {
         String sql = """
                 INSERT INTO sections (section_id, course_id, instructor_id, day_of_week, start_time, end_time,
-                                      room, capacity, semester, academic_year, registration_deadline)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                      room, capacity, semester, academic_year, registration_deadline, weighting_rule, component_names)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                     course_id = VALUES(course_id),
                     instructor_id = VALUES(instructor_id),
@@ -147,7 +155,9 @@ public final class JdbcErpRepository implements ErpRepository {
                     capacity = VALUES(capacity),
                     semester = VALUES(semester),
                     academic_year = VALUES(academic_year),
-                    registration_deadline = VALUES(registration_deadline)
+                    registration_deadline = VALUES(registration_deadline),
+                    weighting_rule = VALUES(weighting_rule),
+                    component_names = VALUES(component_names)
                 """;
         executeUpdate(sql, ps -> {
             ps.setString(1, section.getSectionId());
@@ -161,6 +171,16 @@ public final class JdbcErpRepository implements ErpRepository {
             ps.setInt(9, section.getSemester());
             ps.setInt(10, section.getYear());
             ps.setDate(11, Date.valueOf(section.getRegistrationDeadline()));
+            ps.setString(12, section.getWeightingRule());
+            ps.setString(13, section.getComponentNames());
+        });
+    }
+
+    @Override
+    public void deleteSection(String sectionId) {
+        String sql = "DELETE FROM sections WHERE section_id = ?";
+        executeUpdate(sql, ps -> {
+            ps.setString(1, sectionId);
         });
     }
 
@@ -351,7 +371,9 @@ public final class JdbcErpRepository implements ErpRepository {
                 rs.getInt("capacity"),
                 rs.getInt("semester"),
                 rs.getInt("academic_year"),
-                rs.getDate("registration_deadline").toLocalDate()
+                rs.getDate("registration_deadline").toLocalDate(),
+                rs.getString("weighting_rule"),
+                rs.getString("component_names")
         );
     }
 
