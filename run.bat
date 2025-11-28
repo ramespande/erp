@@ -1,14 +1,21 @@
 @echo off
 setlocal enabledelayedexpansion
 
-REM Load database configuration if config.bat exists
-if exist config.bat (
-    call config.bat
-) else (
-    echo Warning: config.bat not found. Using default database settings.
-    echo Create config.bat to customize database connection.
-    echo.
-)
+REM ============================================================================
+REM Database Configuration (inlined from config.bat)
+REM ============================================================================
+set "ERP_AUTH_DB_URL=jdbc:mysql://localhost:3306/erp_auth?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+set "ERP_AUTH_DB_USER=root"
+set "ERP_AUTH_DB_PASSWORD=abhigyan"
+set "ERP_DATA_DB_URL=jdbc:mysql://localhost:3306/erp_data?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+set "ERP_DATA_DB_USER=root"
+set "ERP_DATA_DB_PASSWORD=abhigyan"
+set "ERP_DB_POOL_SIZE=8"
+
+echo Database configuration loaded.
+echo Auth DB: "%ERP_AUTH_DB_URL%"
+echo Data DB: "%ERP_DATA_DB_URL%"
+echo.
 
 if "%MAIN_CLASS%"=="" set MAIN_CLASS=edu.univ.erp.Application
 
