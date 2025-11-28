@@ -194,9 +194,3 @@ INSERT INTO grade_components (enrollment_id, name, score, weight) VALUES
 
 INSERT INTO settings (key_name, value) VALUES
 ('maintenance_on', 'false');
-
--- Optional verification:
--- SELECT * FROM courses;
--- SELECT * FROM sections;
--- SELECT * FROM enrollments;
-
