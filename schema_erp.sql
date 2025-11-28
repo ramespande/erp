@@ -175,61 +175,38 @@ CREATE TABLE settings (
 -- Students
 INSERT INTO students (user_id, roll_no, program, academic_year) VALUES
 ('USR-STU-001', '2021CS001', 'Computer Science', 3),
-('USR-STU-002', '2021CS002', 'Computer Science', 3),
-('USR-STU-003', '2022EE001', 'Electrical Engineering', 2);
+('USR-STU-002', '2021CS002', 'Computer Science', 3);
 
 -- Instructors
 INSERT INTO instructors (user_id, department, title) VALUES
-('USR-INST-001', 'Computer Science', 'Associate Professor'),
-('USR-INST-002', 'Mathematics', 'Professor');
+('USR-INST-001', 'Computer Science', 'Associate Professor');
 
 -- Courses
 INSERT INTO courses (course_id, code, title, credits) VALUES
 ('CRS-001', 'CS301', 'Database Systems', 4),
-('CRS-002', 'CS302', 'Operating Systems', 4),
-('CRS-003', 'CS303', 'Computer Networks', 3),
-('CRS-004', 'MATH201', 'Linear Algebra', 3),
-('CRS-005', 'CS401', 'Machine Learning', 4);
+('CRS-002', 'CS302', 'Operating Systems', 4);
 
 -- Sections (Current semester: Semester 1, Year 2024)
 -- Registration deadlines set to 1 year in the future to allow testing
-INSERT INTO sections (section_id, course_id, instructor_id, day_of_week, start_time, end_time, room, capacity, semester, academic_year, registration_deadline) VALUES
-('SEC-001', 'CRS-001', 'USR-INST-001', 'MONDAY', '09:00:00', '10:30:00', 'LH-101', 60, 1, 2024, DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),
-('SEC-002', 'CRS-001', 'USR-INST-001', 'WEDNESDAY', '14:00:00', '15:30:00', 'LH-102', 60, 1, 2024, DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),
-('SEC-003', 'CRS-002', 'USR-INST-001', 'TUESDAY', '11:00:00', '12:30:00', 'LH-201', 50, 1, 2024, DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),
-('SEC-004', 'CRS-003', 'USR-INST-001', 'THURSDAY', '09:00:00', '10:30:00', 'LAB-301', 40, 1, 2024, DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),
-('SEC-005', 'CRS-004', 'USR-INST-002', 'FRIDAY', '10:00:00', '11:30:00', 'LH-103', 70, 1, 2024, DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),
-('SEC-006', 'CRS-005', 'USR-INST-001', 'MONDAY', '14:00:00', '16:00:00', 'LH-301', 45, 1, 2024, DATE_ADD(CURDATE(), INTERVAL 1 YEAR));
+INSERT INTO sections (section_id, course_id, instructor_id, day_of_week, start_time, end_time, room, capacity, semester, academic_year, registration_deadline, weighting_rule, component_names) VALUES
+('SEC-DB-001', 'CRS-001', 'USR-INST-001', 'MONDAY', '09:00:00', '10:30:00', 'LH-101', 1, 1, 2024, DATE_ADD(CURDATE(), INTERVAL 1 YEAR), '30,30,40', 'Quiz,Midterm,Final'),
+('SEC-OS-001', 'CRS-002', 'USR-INST-001', 'WEDNESDAY', '14:00:00', '15:30:00', 'LH-201', 40, 1, 2024, DATE_ADD(CURDATE(), INTERVAL 1 YEAR), '20,30,50', 'Lab,Midterm,Final');
 
 -- Enrollments
 INSERT INTO enrollments (enrollment_id, student_id, section_id, status) VALUES
-('ENR-001', 'USR-STU-001', 'SEC-001', 'ACTIVE'),
-('ENR-002', 'USR-STU-001', 'SEC-003', 'ACTIVE'),
-('ENR-003', 'USR-STU-001', 'SEC-004', 'ACTIVE'),
-('ENR-004', 'USR-STU-002', 'SEC-001', 'ACTIVE'),
-('ENR-005', 'USR-STU-002', 'SEC-005', 'ACTIVE'),
-('ENR-006', 'USR-STU-003', 'SEC-004', 'ACTIVE'),
-('ENR-007', 'USR-STU-003', 'SEC-005', 'ACTIVE');
+('ENR-001', 'USR-STU-001', 'SEC-DB-001', 'ACTIVE'),
+('ENR-002', 'USR-STU-002', 'SEC-OS-001', 'ACTIVE');
 
 -- Grade Books (some with final grades, some without)
 INSERT INTO grade_books (enrollment_id, final_grade) VALUES
 ('ENR-001', NULL),
-('ENR-002', NULL),
-('ENR-003', NULL),
-('ENR-004', NULL),
-('ENR-005', NULL),
-('ENR-006', NULL),
-('ENR-007', NULL);
+('ENR-002', NULL);
 
 -- Grade Components (sample grades for ENR-001)
 INSERT INTO grade_components (enrollment_id, name, score, weight) VALUES
-('ENR-001', 'Assignment 1', 85.0, 0.15),
-('ENR-001', 'Assignment 2', 90.0, 0.15),
-('ENR-001', 'Midterm Exam', 78.0, 0.30),
-('ENR-001', 'Final Exam', 82.0, 0.40),
-('ENR-004', 'Assignment 1', 92.0, 0.20),
-('ENR-004', 'Midterm Exam', 88.0, 0.30),
-('ENR-004', 'Final Exam', 91.0, 0.50);
+('ENR-001', 'Quiz', 85.0, 0.30),
+('ENR-001', 'Midterm', 78.0, 0.30),
+('ENR-001', 'Final', 82.0, 0.40);
 
 -- Settings
 INSERT INTO settings (key_name, value) VALUES
