@@ -22,10 +22,10 @@ CREATE TABLE auth_users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO auth_users (user_id, username, role, password_hash, active, last_login, failed_attempts, lockout_until) VALUES
-('USR-ADMIN-001', 'admin1', 'ADMIN', '$2a$12$6rR0S7iOD5JB.odBsoZWP.I7QwBLM5IdaoxFCdKgu2YXAVlBA6wIe', TRUE, NULL, 0, NULL),
-('USR-INST-001', 'inst1', 'INSTRUCTOR', '$2a$12$uSnJDSg3Y8zFTew6rQGO/O81nPl25iEI9WsqGybYYw/A9pn17VovO', TRUE, NULL, 0, NULL),
-('USR-STU-001', 'stu1', 'STUDENT', '$2a$12$jdgqBZ7idDENwgCMmApOjuPI1uGpADTDARBW3YdRoNDEG6QZz6KEG', TRUE, NULL, 0, NULL),
-('USR-STU-002', 'stu2', 'STUDENT', '$2a$12$jdgqBZ7idDENwgCMmApOjuPI1uGpADTDARBW3YdRoNDEG6QZz6KEG', TRUE, NULL, 0, NULL);
+('USR-ADMIN-001', 'ranjan', 'ADMIN', '$2a$12$1eN0XN1Iwvx7/clESWbb1.2L/SzjdugUR0A4BS9D9gtyYYZur/vZ.', TRUE, NULL, 0, NULL),
+('USR-INST-001', 'sambuddho', 'INSTRUCTOR', '$2a$12$tCYQ/3wc30MD6oiwIYjDf.D6bOkOiwGRk5zxm3jF.yjrJO/naubOO', TRUE, NULL, 0, NULL),
+('USR-STU-001', 'rijul', 'STUDENT', '$2a$12$1UwpU/Pt0IgBvuxgCE2R2eixdAZo/1xfhOP/gJDkMBIRgglkcgJpO', TRUE, NULL, 0, NULL),
+('USR-STU-002', 'nakul', 'STUDENT', '$2a$12$42MBZ/eg9k3ZCh2JBTVaduyhVH/I2aRzKLj8zD0upRYiZxSMBcodi', TRUE, NULL, 0, NULL);
 
 
 CREATE DATABASE IF NOT EXISTS erp_data CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
