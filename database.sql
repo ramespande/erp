@@ -166,24 +166,31 @@ INSERT INTO instructors (user_id, department, title) VALUES
 
 INSERT INTO courses (course_id, code, title, credits) VALUES
 ('CRS-001', 'CS301', 'Database Systems', 4),
-('CRS-002', 'CS302', 'Operating Systems', 4);
+('CRS-002', 'CS302', 'Operating Systems', 4),
+('CRS-003', 'HIST101', 'Modern History', 3);
 
 INSERT INTO sections (section_id, course_id, instructor_id, day_of_week, start_time, end_time, room, capacity, semester, academic_year, registration_deadline, weighting_rule, component_names) VALUES
 ('SEC-DB-001', 'CRS-001', 'USR-INST-001', 'MONDAY', '09:00:00', '10:30:00', 'LH-101', 1, 1, 2024, DATE_ADD(CURDATE(), INTERVAL 1 YEAR), '30,30,40', 'Quiz,Midterm,Final'),
-('SEC-OS-001', 'CRS-002', 'USR-INST-001', 'WEDNESDAY', '14:00:00', '15:30:00', 'LH-201', 40, 1, 2024, DATE_ADD(CURDATE(), INTERVAL 1 YEAR), '20,30,50', 'Lab,Midterm,Final');
+('SEC-OS-001', 'CRS-002', 'USR-INST-001', 'WEDNESDAY', '14:00:00', '15:30:00', 'LH-201', 40, 1, 2024, DATE_ADD(CURDATE(), INTERVAL 1 YEAR), '20,30,50', 'Lab,Midterm,Final'),
+('SEC-HI-001', 'CRS-003', 'USR-INST-001', 'FRIDAY', '11:00:00', '12:30:00', 'LH-202', 30, 1, 2024, DATE_SUB(CURDATE(), INTERVAL 14 DAY), '25,35,40', 'Essay,Midterm,Final');
 
 INSERT INTO enrollments (enrollment_id, student_id, section_id, status) VALUES
 ('ENR-001', 'USR-STU-001', 'SEC-DB-001', 'ACTIVE'),
-('ENR-002', 'USR-STU-002', 'SEC-OS-001', 'ACTIVE');
+('ENR-002', 'USR-STU-002', 'SEC-OS-001', 'ACTIVE'),
+('ENR-003', 'USR-STU-001', 'SEC-HI-001', 'ACTIVE');
 
 INSERT INTO grade_books (enrollment_id, final_grade) VALUES
 ('ENR-001', NULL),
-('ENR-002', NULL);
+('ENR-002', NULL),
+('ENR-003', NULL);
 
 INSERT INTO grade_components (enrollment_id, name, score, weight) VALUES
 ('ENR-001', 'Quiz', 85.0, 0.30),
 ('ENR-001', 'Midterm', 78.0, 0.30),
-('ENR-001', 'Final', 82.0, 0.40);
+('ENR-001', 'Final', 82.0, 0.40),
+('ENR-003', 'Essay', 90.0, 0.25),
+('ENR-003', 'Midterm', 88.0, 0.35),
+('ENR-003', 'Final', 84.0, 0.40);
 
 INSERT INTO settings (key_name, value) VALUES
 ('maintenance_on', 'false');
