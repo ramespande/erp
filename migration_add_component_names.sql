@@ -3,10 +3,6 @@
 
 USE erp_data;
 
-ALTER TABLE sections 
-ADD COLUMN weighting_rule VARCHAR(100) NULL 
-AFTER registration_deadline;
-
 ALTER TABLE sections
 ADD COLUMN component_names VARCHAR(255) NULL
 AFTER weighting_rule;
